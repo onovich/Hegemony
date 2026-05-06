@@ -5,6 +5,15 @@ import {
     Tent, Flag, ArrowRight, MessageSquareWarning, Crown
 } from 'lucide-react';
 
+const TAB_ITEMS = [
+    { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
+    { id: 'COUNCIL', icon: Scroll, label: '内政', shortcut: '2' },
+    { id: 'ARMY', icon: Swords, label: '军政', shortcut: '3' },
+    { id: 'TOWN', icon: Coffee, label: '探访', shortcut: '4' },
+    { id: 'PERSONNEL', icon: UserPlus, label: '人事', shortcut: '5' },
+    { id: 'DIPLOMACY', icon: Map, label: '外交', shortcut: '6' },
+];
+
 // --- Initial Data ---
 const INITIAL_DATE = { year: 190, month: 1 };
 const MAX_AP = 5; // Action points per month
@@ -67,6 +76,7 @@ export default function App() {
     const [inventory, setInventory] = useState([]);
     const [logs, setLogs] = useState([{ id: 0, text: '公元190年，群雄割据，您占据洛阳，开启了争霸之路。', type: 'system' }]);
     const [activeTab, setActiveTab] = useState('HOME');
+    const [isDesktop, setIsDesktop] = useState(false);
     const logsEndRef = useRef(null);
 
     // Auto-scroll logs
@@ -75,6 +85,21 @@ export default function App() {
             logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [logs]);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(min-width: 1024px)');
+        const syncViewport = (event) => setIsDesktop(event.matches);
+
+        setIsDesktop(mediaQuery.matches);
+
+        if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', syncViewport);
+            return () => mediaQuery.removeEventListener('change', syncViewport);
+        }
+
+        mediaQuery.addListener(syncViewport);
+        return () => mediaQuery.removeListener(syncViewport);
+    }, []);
 
     // --- Helpers ---
     const addLog = (text, type = 'normal') => {
@@ -92,6 +117,7 @@ export default function App() {
 
     const getPlayerOfficers = () => officers.filter(o => o.faction === 'player');
     const getPlayerCity = () => Object.values(cities).find(c => c.owner === 'player');
+    const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
     
     // Calculate total stats for player
     const getTotalStats = () => {
@@ -170,6 +196,39 @@ export default function App() {
             alert("恭喜您，一统天下！");
         }
     };
+
+    useEffect(() => {
+        if (!isDesktop) return;
+
+        const handleKeydown = (event) => {
+            const target = event.target;
+            const isEditable = target instanceof HTMLElement && (
+                target.tagName === 'INPUT' ||
+                target.tagName === 'TEXTAREA' ||
+                target.tagName === 'SELECT' ||
+                target.isContentEditable
+            );
+
+            if (isEditable || event.metaKey || event.ctrlKey || event.altKey) {
+                return;
+            }
+
+            const tabMatch = TAB_ITEMS.find(item => item.shortcut === event.key);
+            if (tabMatch) {
+                event.preventDefault();
+                setActiveTab(tabMatch.id);
+                return;
+            }
+
+            if (event.key === 'n' || event.key === 'N') {
+                event.preventDefault();
+                nextMonth();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeydown);
+        return () => window.removeEventListener('keydown', handleKeydown);
+    }, [isDesktop, activeTab, date, ap, resources, cities, factions, officers, inventory, logs]);
 
     // 2. Exploration (民间探访)
     const exploreLocation = (location) => {
@@ -443,12 +502,13 @@ export default function App() {
     // --- Sub-Components (Renderers) ---
 
     const renderHeader = () => (
-        <div className="bg-slate-900 border-b border-amber-900/50 p-4 flex flex-wrap justify-between items-center text-amber-50 shadow-md">
+        <div className="bg-slate-900 border-b border-amber-900/50 p-4 lg:px-6 text-amber-50 shadow-md">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
                 <Crown className="w-8 h-8 text-yellow-500" />
                 <div>
                     <h1 className="text-xl font-bold tracking-widest text-amber-500">霸业：三国崛起</h1>
-                    <span className="text-xs text-slate-400">主公：{officers.find(o=>o.id==='player_ruler')?.name}</span>
+                    <span className="text-xs text-slate-400">主公：{officers.find(o=>o.id==='player_ruler')?.name}{isDesktop ? ` · 当前界面：${activeTabLabel}` : ''}</span>
                 </div>
             </div>
             <div className="flex space-x-6 text-sm font-medium mt-2 sm:mt-0">
@@ -466,37 +526,34 @@ export default function App() {
                     次月 <ArrowRight className="w-4 h-4 ml-1"/>
                 </button>
             </div>
+            </div>
         </div>
     );
 
     const renderNav = () => {
-        const navItems = [
-            { id: 'HOME', icon: <Home className="w-5 h-5"/>, label: '主城' },
-            { id: 'COUNCIL', icon: <Scroll className="w-5 h-5"/>, label: '内政' },
-            { id: 'ARMY', icon: <Swords className="w-5 h-5"/>, label: '军政' },
-            { id: 'TOWN', icon: <Coffee className="w-5 h-5"/>, label: '探访' },
-            { id: 'PERSONNEL', icon: <UserPlus className="w-5 h-5"/>, label: '人事' },
-            { id: 'DIPLOMACY', icon: <Map className="w-5 h-5"/>, label: '外交' },
-        ];
-
         return (
-            <div className="w-24 bg-slate-800 flex flex-col border-r border-amber-900/30 flex-shrink-0">
-                {navItems.map(item => (
+            <div className="w-24 bg-slate-800 flex flex-col border-r border-amber-900/30 flex-shrink-0 lg:w-28 lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/70 lg:shadow-2xl lg:backdrop-blur-sm lg:overflow-hidden">
+                {TAB_ITEMS.map(item => {
+                    const Icon = item.icon;
+
+                    return (
                     <button 
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
-                        className={`flex flex-col items-center justify-center p-4 h-20 transition-colors border-b border-amber-900/20 ${activeTab === item.id ? 'bg-amber-900/50 text-amber-400 border-l-4 border-l-amber-500' : 'text-slate-400 hover:bg-slate-700 hover:text-amber-200'}`}
+                        title={isDesktop ? `${item.label} (${item.shortcut})` : item.label}
+                        className={`flex flex-col items-center justify-center p-4 h-20 transition-colors border-b border-amber-900/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${activeTab === item.id ? 'bg-amber-900/50 text-amber-400 border-l-4 border-l-amber-500' : 'text-slate-400 hover:bg-slate-700 hover:text-amber-200'} ${isDesktop ? 'lg:h-24 lg:gap-1' : ''}`}
                     >
-                        {item.icon}
+                        <Icon className="w-5 h-5 lg:w-6 lg:h-6"/>
                         <span className="text-xs mt-1 font-bold tracking-wide">{item.label}</span>
+                        {isDesktop && <span className="text-[10px] text-slate-500">{item.shortcut}</span>}
                     </button>
-                ))}
+                )})}
             </div>
         );
     };
 
-    const renderLog = () => (
-        <div className="h-48 bg-black/80 border-t border-amber-900/50 p-3 overflow-y-auto font-mono text-sm shadow-inner shrink-0">
+    const renderLog = (className = 'h-48 bg-black/80 border-t border-amber-900/50 p-3 overflow-y-auto font-mono text-sm shadow-inner shrink-0') => (
+        <div className={className}>
             {logs.map((log) => (
                 <div key={log.id} className={`mb-1 ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'warning' ? 'text-yellow-400' : log.type === 'system' ? 'text-blue-300' : 'text-slate-300'}`}>
                     <span className="opacity-50 mr-2">[{date.year}年{date.month}月]</span>
@@ -506,6 +563,59 @@ export default function App() {
             <div ref={logsEndRef} />
         </div>
     );
+
+    const renderDesktopSidebar = () => {
+        const myCity = getPlayerCity();
+
+        return (
+            <aside className="hidden lg:flex lg:w-[320px] lg:flex-col lg:gap-4 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/70 lg:p-4 lg:shadow-2xl lg:backdrop-blur-sm">
+                <div className="rounded-xl border border-amber-900/20 bg-black/20 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h2 className="text-sm font-bold tracking-widest text-amber-400">桌面指挥台</h2>
+                        <span className="rounded-full border border-amber-800/40 bg-amber-950/40 px-2 py-1 text-xs text-amber-200">{activeTabLabel}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
+                        <div className="rounded-lg bg-slate-800/70 p-3">
+                            <div className="text-xs text-slate-500">当前城池</div>
+                            <div className="mt-1 font-bold text-amber-100">{myCity.name}</div>
+                        </div>
+                        <div className="rounded-lg bg-slate-800/70 p-3">
+                            <div className="text-xs text-slate-500">驻军兵力</div>
+                            <div className="mt-1 font-bold text-amber-100">{myCity.troops}</div>
+                        </div>
+                        <div className="rounded-lg bg-slate-800/70 p-3">
+                            <div className="text-xs text-slate-500">士气</div>
+                            <div className="mt-1 font-bold text-amber-100">{myCity.morale} / 100</div>
+                        </div>
+                        <div className="rounded-lg bg-slate-800/70 p-3">
+                            <div className="text-xs text-slate-500">本月政令</div>
+                            <div className="mt-1 font-bold text-amber-100">{ap} / {MAX_AP}</div>
+                        </div>
+                    </div>
+                    <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-400">
+                        <div className="mb-2 font-bold tracking-wide text-slate-300">快捷键</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {TAB_ITEMS.map(item => (
+                                <div key={item.id} className="flex items-center justify-between rounded bg-slate-900/70 px-2 py-1">
+                                    <span>{item.label}</span>
+                                    <span className="text-amber-300">{item.shortcut}</span>
+                                </div>
+                            ))}
+                            <div className="col-span-2 flex items-center justify-between rounded bg-slate-900/70 px-2 py-1">
+                                <span>推进次月</span>
+                                <span className="text-amber-300">N</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-amber-900/20 bg-black/20">
+                    <div className="border-b border-amber-900/20 px-4 py-3 text-sm font-bold tracking-widest text-amber-400">军情日志</div>
+                    {renderLog('h-full overflow-y-auto p-4 font-mono text-sm')}
+                </div>
+            </aside>
+        );
+    };
 
     // --- Tab Contents ---
 
@@ -665,32 +775,35 @@ export default function App() {
             <p className="text-center text-slate-400 mb-8 text-sm">微服私访，体察民情，或许会有意想不到的收获。(每次消耗 1 政令)</p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div 
+                <button 
+                    type="button"
                     onClick={() => exploreLocation('tavern')}
-                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group"
+                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
                 >
                     <Coffee className="w-16 h-16 text-amber-600 mb-4 group-hover:scale-110 transition-transform"/>
                     <h3 className="text-xl text-amber-100 font-bold mb-2">酒馆</h3>
                     <p className="text-slate-400 text-sm">鱼龙混杂之地。可打听情报，或结识在野的名士武将。</p>
-                </div>
+                </button>
                 
-                <div 
+                <button 
+                    type="button"
                     onClick={() => exploreLocation('market')}
-                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group"
+                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
                 >
                     <ShoppingBag className="w-16 h-16 text-yellow-600 mb-4 group-hover:scale-110 transition-transform"/>
                     <h3 className="text-xl text-amber-100 font-bold mb-2">市集</h3>
                     <p className="text-slate-400 text-sm">商贾云集。巡视可获得额外税收，偶尔能淘到稀世珍宝。</p>
-                </div>
+                </button>
 
-                <div 
+                <button 
+                    type="button"
                     onClick={() => exploreLocation('street')}
-                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group"
+                    className="bg-slate-800 hover:bg-slate-700 cursor-pointer p-8 rounded-lg border-2 border-amber-900/30 text-center transition flex flex-col items-center justify-center h-64 shadow-lg group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
                 >
                     <Users className="w-16 h-16 text-blue-500 mb-4 group-hover:scale-110 transition-transform"/>
                     <h3 className="text-xl text-amber-100 font-bold mb-2">街道</h3>
                     <p className="text-slate-400 text-sm">安抚百姓，倾听民声。可提升民心，或获得富商的粮草捐赠。</p>
-                </div>
+                </button>
             </div>
 
             {/* Inventory Display */}
@@ -825,24 +938,30 @@ export default function App() {
         <div className="min-h-screen bg-slate-950 flex flex-col font-sans select-none" style={{ backgroundImage: 'radial-gradient(circle at center, #1e293b 0%, #020617 100%)' }}>
             {renderHeader()}
             
-            <div className="flex flex-1 overflow-hidden">
-                {renderNav()}
-                
-                <main className="flex-1 flex flex-col relative overflow-y-auto">
-                    {/* View Switcher */}
-                    <div className="flex-1 pb-4">
-                        {activeTab === 'HOME' && renderHome()}
-                        {activeTab === 'COUNCIL' && renderCouncil()}
-                        {activeTab === 'ARMY' && renderArmy()}
-                        {activeTab === 'TOWN' && renderTown()}
-                        {activeTab === 'PERSONNEL' && renderPersonnel()}
-                        {activeTab === 'DIPLOMACY' && renderDiplomacy()}
-                    </div>
-                </main>
+            <div className="flex flex-1 overflow-hidden lg:px-6 lg:py-6">
+                <div className="flex flex-1 overflow-hidden lg:mx-auto lg:max-w-7xl lg:gap-6">
+                    {renderNav()}
+                    
+                    <main className="flex-1 flex flex-col relative overflow-y-auto lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/60 lg:shadow-2xl lg:backdrop-blur-sm">
+                        {/* View Switcher */}
+                        <div className="flex-1 pb-4 lg:pb-6">
+                            {activeTab === 'HOME' && renderHome()}
+                            {activeTab === 'COUNCIL' && renderCouncil()}
+                            {activeTab === 'ARMY' && renderArmy()}
+                            {activeTab === 'TOWN' && renderTown()}
+                            {activeTab === 'PERSONNEL' && renderPersonnel()}
+                            {activeTab === 'DIPLOMACY' && renderDiplomacy()}
+                        </div>
+                    </main>
+
+                    {renderDesktopSidebar()}
+                </div>
             </div>
 
             {/* Bottom Log */}
-            {renderLog()}
+            <div className="lg:hidden">
+                {renderLog()}
+            </div>
         </div>
     );
 }
