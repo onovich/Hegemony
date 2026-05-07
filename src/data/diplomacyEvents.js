@@ -80,6 +80,26 @@ export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
       },
     },
   ],
+  persuadeSucceeded: [
+    {
+      scope: 'faction',
+      type: 'success',
+      text: '【{{faction}}】因旧部倒戈而军心不稳，我方声望提升 {{reputation}}，双方关系变化 {{relation}}。',
+      effects: {
+        reputation: [1, 3],
+        relation: [-4, -1],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'success',
+      text: '受【{{faction}}】将领来投鼓舞，【{{city}}】士气提升 {{morale}}，军备整顿带来 {{gold}} 金节余。',
+      effects: {
+        morale: [3, 6],
+        gold: [70, 140],
+      },
+    },
+  ],
   persuadeFailed: [
     {
       scope: 'faction',
@@ -97,6 +117,26 @@ export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
       effects: {
         gold: [-130, -70],
         morale: [-4, -2],
+      },
+    },
+  ],
+  alienateSucceeded: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】内部猜忌渐起，双方关系下降 {{relation}}，我方声望提升 {{reputation}}。',
+      effects: {
+        relation: [-4, -1],
+        reputation: [1, 2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'system',
+      text: '因【{{faction}}】军中流言未息，【{{city}}】边贸稍缓，却也获得了 {{gold}} 金情报回流，士气提升 {{morale}}。',
+      effects: {
+        gold: [60, 130],
+        morale: [2, 5],
       },
     },
   ],

@@ -254,6 +254,10 @@ export function resolvePlayerDiplomacyAction({
     });
 
     if (chance(successChance)) {
+      result.factions = {
+        ...result.factions,
+        [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeSucceeded'),
+      };
       result.cities = clearOfficerAssignmentsFromCities(cities, targetOfficer.id);
       result.officers = officers.map(officer => officer.id === targetOfficer.id
         ? {
@@ -303,6 +307,10 @@ export function resolvePlayerDiplomacyAction({
 
       if (chance(getAlienateSuccessChance(stats.int, targetOfficer.int))) {
         const loyaltyDrop = getAlienateLoyaltyDrop();
+        result.factions = {
+          ...result.factions,
+          [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'alienateSucceeded'),
+        };
         result.officers = officers.map(officer => officer.id === targetOfficer.id
           ? { ...officer, loyalty: Math.max(0, officer.loyalty - loyaltyDrop) }
           : officer);
