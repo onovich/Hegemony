@@ -241,6 +241,24 @@ export const GAME_BALANCE = {
     rulerStrongNegativeDrift: -2,
     leaderPositiveDrift: 1,
     leaderNegativeDrift: -1,
+    cityLeadershipEffects: {
+      strongPositive: {
+        economy: { pol: 6, cha: 4 },
+        military: { cmd: 6, cha: 4 },
+      },
+      positive: {
+        economy: { pol: 3, cha: 2 },
+        military: { cmd: 3, cha: 2 },
+      },
+      negative: {
+        economy: { pol: -2, cha: -1 },
+        military: { cmd: -2, cha: -1 },
+      },
+      strongNegative: {
+        economy: { pol: -5, cha: -3 },
+        military: { cmd: -5, cha: -3 },
+      },
+    },
   },
   diplomacy: {
     giftGoldCost: 500,

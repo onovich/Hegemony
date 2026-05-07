@@ -52,8 +52,10 @@ import {
 import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 import {
+    applyCityLeadershipRelationshipEffects,
     calculateMonthlyRelationshipDrift,
     calculateRecruitRelationshipBonus,
+    getCityLeadershipRelationshipEffect,
     getOfficerRelationLabel,
     getOfficerRelationScore,
 } from '../src/logic/engine/officerRelationships.js';
@@ -141,6 +143,7 @@ export default function App() {
                 commander: null,
                 governorSpecialty: null,
                 commanderSpecialty: null,
+                leadershipRelation: getCityLeadershipRelationshipEffect(null, null),
                 economyStats: EMPTY_STATS,
                 militaryStats: EMPTY_STATS,
             };
@@ -155,6 +158,12 @@ export default function App() {
         const commander = stationedOfficers.find(officer => officer.id === city.commanderId) ?? null;
         const economyProfile = getDirectedStatsWithSpecialty(stationedOfficers, governor?.id ?? null, 'governor');
         const militaryProfile = getDirectedStatsWithSpecialty(stationedOfficers, commander?.id ?? null, 'commander');
+        const relationshipProfile = applyCityLeadershipRelationshipEffects({
+            economyStats: economyProfile.stats,
+            militaryStats: militaryProfile.stats,
+            governor,
+            commander,
+        });
 
         return {
             stationedOfficers,
@@ -162,8 +171,9 @@ export default function App() {
             commander,
             governorSpecialty: economyProfile.activeSpecialty,
             commanderSpecialty: militaryProfile.activeSpecialty,
-            economyStats: economyProfile.stats,
-            militaryStats: militaryProfile.stats,
+            leadershipRelation: relationshipProfile.relationshipEffect,
+            economyStats: relationshipProfile.economyStats,
+            militaryStats: relationshipProfile.militaryStats,
         };
     };
     const getCurrentCityProfile = () => {
@@ -176,6 +186,7 @@ export default function App() {
                 commander: null,
                 governorSpecialty: null,
                 commanderSpecialty: null,
+                leadershipRelation: getCityLeadershipRelationshipEffect(null, null),
                 economyStats: EMPTY_STATS,
                 militaryStats: EMPTY_STATS,
             };
@@ -1180,6 +1191,9 @@ export default function App() {
                     <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                         太守特技：{currentCityProfile.governorSpecialty?.name ?? '未激活'} · 主将特技：{currentCityProfile.commanderSpecialty?.name ?? '未激活'}
                     </div>
+                    <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                        主官配合：{currentCityProfile.leadershipRelation.relationLabel} {currentCityProfile.governor && currentCityProfile.commander && currentCityProfile.governor.id !== currentCityProfile.commander.id ? `(相性 ${currentCityProfile.leadershipRelation.relationScore})` : '（待成型）'}
+                    </div>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
                         <div><span className="text-slate-500">驻军：</span>{myCity.troops}</div>
@@ -1279,6 +1293,7 @@ export default function App() {
                                 <div className="mt-1 text-xs text-slate-500">地区：{city.region} · 特色：{city.specialty}</div>
                                 <div className="mt-1 text-xs text-slate-400">太守：{cityProfile.governor?.name ?? '未任命'} | 主将：{cityProfile.commander?.name ?? '未任命'}</div>
                                 <div className="mt-1 text-xs text-slate-500">特技：{cityProfile.governorSpecialty?.shortLabel ?? '无'} / {cityProfile.commanderSpecialty?.shortLabel ?? '无'}</div>
+                                <div className="mt-1 text-xs text-slate-500">配合：{cityProfile.leadershipRelation.relationLabel}</div>
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
                                     <div>兵力：{city.troops}</div>
                                     <div>士气：{city.morale}</div>
@@ -1305,6 +1320,7 @@ export default function App() {
             <h2 className="text-2xl font-bold text-amber-500 mb-6 text-center">主持内政</h2>
             <p className="mb-6 text-center text-xs text-slate-400">当前城由【{getCurrentCityProfile().governor?.name ?? '未任命'}】主持政务，太守会优先影响本城经营收益与开发效果。</p>
             <p className="mb-6 text-center text-xs text-slate-500">当前激活特技：{getCurrentCityProfile().governorSpecialty?.name ?? '无'}。{getCurrentCityProfile().governorSpecialty?.description ?? '任命合适的太守后，可在此看到政务侧加成。'}</p>
+            <p className="mb-6 text-center text-xs text-slate-500">当前主官配合：{getCurrentCityProfile().leadershipRelation.relationLabel}。太守与主将相性越好，内政与军务的协同加成越高。</p>
             <div className="grid grid-cols-1 gap-6">
                 <div className="bg-slate-800/80 p-6 rounded-lg border border-amber-900/30 text-center hover:bg-slate-800 transition">
                     <Wheat className="w-12 h-12 text-green-500 mx-auto mb-3"/>
@@ -1351,6 +1367,7 @@ export default function App() {
                         </h2>
                         <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，主将为【{currentCityProfile.commander?.name ?? '未任命'}】，城市定位为【{getCityRoleLabel(myCity)}】。</p>
                         <p className="text-xs text-slate-500 mb-4">当前激活特技：{currentCityProfile.commanderSpecialty?.name ?? '无'}。{currentCityProfile.commanderSpecialty?.description ?? '任命合适主将后，可在此看到军务侧加成。'}</p>
+                        <p className="text-xs text-slate-500 mb-4">当前主官配合：{currentCityProfile.leadershipRelation.relationLabel}，会同步修正本城的政务与军务画像。</p>
                         <div className="mb-4 rounded bg-black/20 p-3 text-xs text-slate-300">
                             驻守武将：{currentCityOfficers.length} 人 | 当前城有效统率：{currentCityStats.cmd} | 当前城有效魅力：{currentCityStats.cha}
                         </div>
@@ -1506,6 +1523,7 @@ export default function App() {
                         <Tent className="w-6 h-6 mr-2"/> 当前城任命
                     </h2>
                     <p className="text-xs text-slate-400 mb-4">当前操作城为【{cities[activeCityId]?.name}】。太守优先影响经营收益，主将优先影响军务表现。</p>
+                    <p className="text-xs text-slate-500 mb-4">当前主官配合：{currentCityProfile.leadershipRelation.relationLabel}。知己搭档会强化城市画像，死敌搭档会拖累经营与军务。</p>
                     {stationedOfficers.length === 0 ? (
                         <p className="text-slate-500 text-sm py-4 text-center">当前城暂无可任命的驻守武将。</p>
                     ) : (

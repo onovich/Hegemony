@@ -1,5 +1,6 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
 import { getDirectedStatsWithSpecialty } from './officerSpecialties.js';
+import { applyCityLeadershipRelationshipEffects } from './officerRelationships.js';
 
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -79,14 +80,21 @@ export function resolveAiFactionCityManagement({ factionId, factionName, cities,
     const nextCommanderId = pickBestOfficerId(stationedOfficers, getRoleWeights(city.role, COMMANDER_ROLE_WEIGHTS));
     const economyProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextGovernorId, 'governor');
     const militaryProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextCommanderId, 'commander');
-    const profile = {
-      stationedOfficers,
+    const relationshipProfile = applyCityLeadershipRelationshipEffects({
       economyStats: economyProfile.stats,
       militaryStats: militaryProfile.stats,
       governor: stationedOfficers.find(officer => officer.id === nextGovernorId) ?? null,
       commander: stationedOfficers.find(officer => officer.id === nextCommanderId) ?? null,
+    });
+    const profile = {
+      stationedOfficers,
+      economyStats: relationshipProfile.economyStats,
+      militaryStats: relationshipProfile.militaryStats,
+      governor: stationedOfficers.find(officer => officer.id === nextGovernorId) ?? null,
+      commander: stationedOfficers.find(officer => officer.id === nextCommanderId) ?? null,
       governorSpecialty: economyProfile.activeSpecialty,
       commanderSpecialty: militaryProfile.activeSpecialty,
+      leadershipRelation: relationshipProfile.relationshipEffect,
     };
     const growth = calculateAiCityGrowth(city, profile);
 

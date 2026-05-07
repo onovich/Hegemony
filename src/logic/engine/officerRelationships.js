@@ -5,6 +5,24 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+const EMPTY_CITY_EFFECT = {
+  key: 'neutral',
+  relationScore: 0,
+  relationLabel: '未成形',
+  economy: { pol: 0, cha: 0 },
+  military: { cmd: 0, cha: 0 },
+};
+
+function applyStatDelta(stats, delta) {
+  return {
+    ...stats,
+    cmd: Math.max(0, (stats.cmd ?? 0) + (delta.cmd ?? 0)),
+    int: Math.max(0, (stats.int ?? 0) + (delta.int ?? 0)),
+    pol: Math.max(0, (stats.pol ?? 0) + (delta.pol ?? 0)),
+    cha: Math.max(0, (stats.cha ?? 0) + (delta.cha ?? 0)),
+  };
+}
+
 function getOfficerProfile(officer) {
   return OFFICER_RELATION_PROFILES[officer?.id] ?? { alignment: 'order', bonds: [], rivals: [] };
 }
@@ -112,5 +130,51 @@ export function calculateMonthlyRelationshipDrift({ officer, ruler, governor, co
     delta,
     rulerScore,
     leaderScore,
+  };
+}
+
+export function getCityLeadershipRelationshipEffect(governor, commander) {
+  if (!governor || !commander || governor.id === commander.id) {
+    return EMPTY_CITY_EFFECT;
+  }
+
+  const relationScore = getOfficerRelationScore(governor, commander);
+  const relationLabel = getOfficerRelationLabel(relationScore);
+  let key = 'neutral';
+
+  if (relationScore >= GAME_BALANCE.relationships.loyaltyStrongThreshold) {
+    key = 'strongPositive';
+  } else if (relationScore >= GAME_BALANCE.relationships.loyaltyPositiveThreshold) {
+    key = 'positive';
+  } else if (relationScore <= -GAME_BALANCE.relationships.loyaltyStrongThreshold) {
+    key = 'strongNegative';
+  } else if (relationScore <= GAME_BALANCE.relationships.loyaltyNegativeThreshold) {
+    key = 'negative';
+  }
+
+  if (key === 'neutral') {
+    return {
+      ...EMPTY_CITY_EFFECT,
+      relationScore,
+      relationLabel,
+    };
+  }
+
+  return {
+    key,
+    relationScore,
+    relationLabel,
+    economy: GAME_BALANCE.relationships.cityLeadershipEffects[key].economy,
+    military: GAME_BALANCE.relationships.cityLeadershipEffects[key].military,
+  };
+}
+
+export function applyCityLeadershipRelationshipEffects({ economyStats, militaryStats, governor, commander }) {
+  const leadershipEffect = getCityLeadershipRelationshipEffect(governor, commander);
+
+  return {
+    relationshipEffect: leadershipEffect,
+    economyStats: applyStatDelta(economyStats, leadershipEffect.economy),
+    militaryStats: applyStatDelta(militaryStats, leadershipEffect.military),
   };
 }
