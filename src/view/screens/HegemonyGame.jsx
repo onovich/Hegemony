@@ -17,7 +17,11 @@ import {
 import { advanceMonth } from '../../logic/engine/calendarEngine.js';
 import { escalateHostility } from '../../logic/engine/diplomacyStatusResolution.js';
 import { resolveMonthlyTurnFlow } from '../../logic/engine/monthlyTurnFlow.js';
-import { resolvePlayerBattle } from '../../logic/engine/playerBattleResolution.js';
+import {
+    buildPlayerBattlePreview,
+    getAvailablePlayerBattleStrategies,
+    resolvePlayerBattle,
+} from '../../logic/engine/playerBattleResolution.js';
 import { resolvePlayerDiplomacyAction } from '../../logic/engine/playerDiplomacyResolution.js';
 import {
     advanceTurnEconomy,
@@ -70,6 +74,9 @@ export default function App() {
     const [activeCityId, setActiveCityId] = useState('luoyang');
     const [gameResult, setGameResult] = useState(null);
     const [isDesktop, setIsDesktop] = useState(false);
+    const [pendingBattle, setPendingBattle] = useState(null);
+    const [selectedBattleStrategy, setSelectedBattleStrategy] = useState('steady');
+    const [battleInProgress, setBattleInProgress] = useState(false);
     const logsEndRef = useRef(null);
 
     // Auto-scroll logs
@@ -293,6 +300,8 @@ export default function App() {
             ...turnResult.resources,
         }));
         setFactions(turnResult.factions);
+        setPendingBattle(null);
+        setBattleInProgress(false);
 
         turnResult.logs.forEach(log => addLog(log.text, log.type));
 
@@ -308,6 +317,129 @@ export default function App() {
         if (turnResult.gameResult === 'victory') {
             alert("恭喜您，一统天下！");
         }
+    };
+
+    const beginBattlePlanning = (targetCityId) => {
+        const myCity = getPlayerCity();
+        const targetCity = cities[targetCityId];
+        const targetFaction = targetCity.owner;
+        const ceasefireTurns = factions[targetFaction].ceasefireTurns ?? 0;
+        if (ceasefireTurns > 0) {
+            addLog(`与【${factions[targetFaction].name}】仍处于停战期（剩余 ${ceasefireTurns} 个月），当前不可主动出兵。`, 'error');
+            return;
+        }
+
+        const costFood = calculateAttackFoodCost(myCity.troops);
+        if (resources.food < costFood) {
+            addLog(`大军出征需要 ${costFood} 粮草，当前粮草不足！`, 'error');
+            return;
+        }
+
+        if (ap < GAME_BALANCE.military.attackApCost) {
+            addLog('政令不足！请等待下个月。', 'error');
+            return;
+        }
+
+        const enemyOfficers = getCityOfficers(targetCityId, targetFaction);
+        const enemyStats = getEffectiveFactionStats(enemyOfficers);
+        const preview = buildPlayerBattlePreview({
+            myCity,
+            targetCity,
+            attackerStats: getCurrentCityProfile().militaryStats,
+            defenderStats: enemyStats,
+            factionName: factions[targetFaction].name,
+        });
+        const availableStrategies = getAvailablePlayerBattleStrategies(targetCity);
+
+        setPendingBattle({
+            targetCityId,
+            targetFaction,
+            enemyStats,
+            costFood,
+            currentRelation: factions[targetFaction].relation ?? 0,
+            preview,
+        });
+        setSelectedBattleStrategy(availableStrategies[0]?.id ?? 'steady');
+        addLog(`已对【${targetCity.name}】展开战前推演，请择定本次攻势方略。`, 'system');
+    };
+
+    const executePlannedBattle = () => {
+        if (!pendingBattle || battleInProgress) {
+            return;
+        }
+
+        const myCity = getPlayerCity();
+        const targetCity = cities[pendingBattle.targetCityId];
+        if (!myCity || !targetCity) {
+            setPendingBattle(null);
+            return;
+        }
+
+        const targetFaction = targetCity.owner;
+        const currentRelation = factions[targetFaction].relation ?? pendingBattle.currentRelation ?? 0;
+        const costFood = calculateAttackFoodCost(myCity.troops);
+        if (resources.food < costFood) {
+            addLog(`大军出征需要 ${costFood} 粮草，当前粮草不足！`, 'error');
+            return;
+        }
+        if (!costAp(GAME_BALANCE.military.attackApCost)) {
+            return;
+        }
+
+        const reputationAfterPenalty = currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold
+            ? Math.max(0, resources.reputation - GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty)
+            : resources.reputation;
+
+        setBattleInProgress(true);
+        setPendingBattle(null);
+        setResources(prev => ({
+            ...prev,
+            food: prev.food - costFood,
+            reputation: currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold
+                ? Math.max(0, prev.reputation - GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty)
+                : prev.reputation,
+        }));
+        setFactions(prev => ({
+            ...prev,
+            [targetFaction]: escalateHostility({
+                ...prev[targetFaction],
+                relation: Math.max(0, prev[targetFaction].relation - GAME_BALANCE.diplomacy.attackRelationDrop),
+            }),
+        }));
+
+        if (currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+            addLog(`你对友好势力【${factions[targetFaction].name}】开战，名望下降了 ${GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty}。`, 'warning');
+        }
+
+        addLog(`🔥 您对【${targetCity.name}】(${factions[targetFaction].name}) 发动了战争，战术选择为【${selectedBattleStrategy === 'steady' ? '稳扎' : selectedBattleStrategy === 'assault' ? '强攻' : selectedBattleStrategy === 'raid' ? '奇袭' : '火攻'}】！`, 'warning');
+
+        const battleResolution = resolvePlayerBattle({
+            cities,
+            officers,
+            resources: {
+                ...resources,
+                food: resources.food - costFood,
+                reputation: reputationAfterPenalty,
+            },
+            factions,
+            myCity,
+            targetCity,
+            attackerStats: getCurrentCityProfile().militaryStats,
+            defenderStats: pendingBattle.enemyStats,
+            strategyId: selectedBattleStrategy,
+        });
+
+        setTimeout(() => {
+            setCities(battleResolution.cities);
+            setOfficers(battleResolution.officers);
+            setResources(battleResolution.resources);
+            battleResolution.logs.forEach(log => addLog(log.text, log.type));
+            setBattleInProgress(false);
+
+            if (battleResolution.gameResult === 'victory') {
+                setTimeout(() => alert('恭喜您，一统天下！'), 100);
+            }
+        }, 1000);
     };
 
     useEffect(() => {
@@ -479,67 +611,7 @@ export default function App() {
             addLog(`武将们操练兵马，军队士气提升了 ${moraleBoost}！`);
         }
         else if (action === 'attack' && targetCityId) {
-            const targetCity = cities[targetCityId];
-            const targetFaction = targetCity.owner;
-            const ceasefireTurns = factions[targetFaction].ceasefireTurns ?? 0;
-            if (ceasefireTurns > 0) {
-                addLog(`与【${factions[targetFaction].name}】仍处于停战期（剩余 ${ceasefireTurns} 个月），当前不可主动出兵。`, 'error');
-                return;
-            }
-
-            const costFood = calculateAttackFoodCost(myCity.troops);
-            if (resources.food < costFood) {
-                addLog(`大军出征需要 ${costFood} 粮草，当前粮草不足！`, 'error');
-                return;
-            }
-            if (!costAp(GAME_BALANCE.military.attackApCost)) return; // Attack costs 2 AP
-
-            setResources(prev => ({ ...prev, food: prev.food - costFood }));
-            const enemyOfficers = getCityOfficers(targetCityId, targetFaction);
-            const enemyStats = getEffectiveFactionStats(enemyOfficers);
-            const currentRelation = factions[targetFaction].relation ?? 0;
-
-            setFactions(prev => ({
-                ...prev,
-                [targetFaction]: escalateHostility({
-                    ...prev[targetFaction],
-                    relation: Math.max(0, prev[targetFaction].relation - GAME_BALANCE.diplomacy.attackRelationDrop),
-                }),
-            }));
-
-            if (currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
-                setResources(prev => ({
-                    ...prev,
-                    reputation: Math.max(0, prev.reputation - GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty),
-                }));
-                addLog(`你对友好势力【${factions[targetFaction].name}】开战，名望下降了 ${GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty}。`, 'warning');
-            }
-
-            addLog(`🔥 您对【${targetCity.name}】(${factions[targetFaction].name}) 发动了战争！`, 'warning');
-            const battleResolution = resolvePlayerBattle({
-                cities,
-                officers,
-                resources: {
-                    ...resources,
-                    food: resources.food - costFood,
-                },
-                factions,
-                myCity,
-                targetCity,
-                attackerStats: stats,
-                defenderStats: enemyStats,
-            });
-
-            setTimeout(() => {
-                setCities(battleResolution.cities);
-                setOfficers(battleResolution.officers);
-                setResources(battleResolution.resources);
-                battleResolution.logs.forEach(log => addLog(log.text, log.type));
-
-                if (battleResolution.gameResult === 'victory') {
-                    setTimeout(() => alert('恭喜您，一统天下！'), 100);
-                }
-            }, 1000); // Small delay for effect
+            beginBattlePlanning(targetCityId);
         }
     };
 
@@ -1014,6 +1086,56 @@ export default function App() {
                         <Swords className="w-6 h-6 mr-2"/> 发动战争
                     </h2>
                     <p className="text-sm text-slate-400 mb-4">选择目标城池出兵。每次出征消耗2政令，并根据兵力消耗对应粮草。</p>
+                    {pendingBattle ? (
+                        <div className="mb-4 rounded-lg border border-red-900/40 bg-black/30 p-4">
+                            <div className="flex items-center justify-between gap-4 border-b border-slate-700 pb-3">
+                                <div>
+                                    <div className="text-sm font-bold text-red-300">战前推演：{pendingBattle.preview.targetName}</div>
+                                    <div className="mt-1 text-xs text-slate-400">敌方势力：{pendingBattle.preview.factionName} | 战场：{pendingBattle.preview.sceneLabel} | 粮耗：{pendingBattle.preview.attackFoodCost}</div>
+                                    <div className="mt-1 text-xs text-slate-500">预估战力：我军 {pendingBattle.preview.attackerPower} / 守军 {pendingBattle.preview.defenderPower}</div>
+                                    {pendingBattle.preview.openingLabel ? (
+                                        <div className="mt-1 text-xs text-rose-300">当前破口：{pendingBattle.preview.openingLabel}，{pendingBattle.preview.openingSummary}</div>
+                                    ) : null}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setPendingBattle(null)}
+                                    className="rounded bg-slate-700 px-3 py-1 text-xs font-bold text-slate-200 transition hover:bg-slate-600"
+                                >
+                                    取消推演
+                                </button>
+                            </div>
+                            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                {pendingBattle.preview.availableStrategies.map(strategy => (
+                                    <button
+                                        key={strategy.id}
+                                        type="button"
+                                        onClick={() => setSelectedBattleStrategy(strategy.id)}
+                                        className={`rounded border p-3 text-left transition ${selectedBattleStrategy === strategy.id ? 'border-red-500 bg-red-950/40' : 'border-slate-700 bg-slate-900/40 hover:border-red-800/60'}`}
+                                    >
+                                        <div className="text-sm font-bold text-amber-100">{strategy.label}</div>
+                                        <div className="mt-1 text-xs text-slate-400">{strategy.summary}</div>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                <div className="text-xs text-slate-500">已选方略会直接修正本次攻城的战损、破城能力与阶段战报。</div>
+                                <button
+                                    type="button"
+                                    disabled={battleInProgress}
+                                    onClick={executePlannedBattle}
+                                    className={`rounded px-4 py-2 text-sm font-bold shadow-lg transition ${battleInProgress ? 'cursor-not-allowed bg-slate-700 text-slate-400' : 'bg-red-800 text-white hover:bg-red-600'}`}
+                                >
+                                    {battleInProgress ? '交战中' : '执行方略'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {battleInProgress ? (
+                        <div className="mb-4 rounded bg-red-950/30 p-3 text-xs text-red-200 border border-red-900/40">
+                            前线正在交锋，战报即将回传。当前不可重复下达新的攻城指令。
+                        </div>
+                    ) : null}
                     
                     {enemyCities.length === 0 ? (
                         <div className="text-green-500 font-bold text-center py-10">天下已定，四海升平！</div>
@@ -1041,12 +1163,12 @@ export default function App() {
                                             ) : null}
                                         </div>
                                         <button 
-                                            disabled={isCeasefireActive}
+                                            disabled={isCeasefireActive || battleInProgress}
                                             onClick={() => militaryAction('attack', city.id)} 
-                                            title={isCeasefireActive ? `停战剩余 ${faction.ceasefireTurns} 个月` : '出兵攻城'}
-                                            className={`px-4 py-2 rounded text-sm font-bold shadow-lg transition ${isCeasefireActive ? 'cursor-not-allowed bg-slate-700 text-slate-400' : 'bg-red-800 hover:bg-red-600 text-white'}`}
+                                            title={isCeasefireActive ? `停战剩余 ${faction.ceasefireTurns} 个月` : battleInProgress ? '战报处理中' : '出兵攻城'}
+                                            className={`px-4 py-2 rounded text-sm font-bold shadow-lg transition ${(isCeasefireActive || battleInProgress) ? 'cursor-not-allowed bg-slate-700 text-slate-400' : 'bg-red-800 hover:bg-red-600 text-white'}`}
                                         >
-                                            {isCeasefireActive ? '停战中' : '出兵'}
+                                            {isCeasefireActive ? '停战中' : battleInProgress ? '交战中' : '出兵'}
                                         </button>
                                     </div>
                                 );
