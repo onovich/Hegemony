@@ -30,7 +30,6 @@ import {
     calculateTrainingBoost,
     calculateVictoryLosses,
     getEmbezzleGoldLoss,
-    getAiGrowth,
     getAlienateLoyaltyDrop,
     getAlienateSuccessChance,
     getCapturedCityTroops,
@@ -51,6 +50,7 @@ import {
     shouldOfficerDesert,
     shouldOfficerEmbezzle,
 } from '../src/logic/engine/gameBalance.js';
+import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
 
 const TAB_ITEMS = [
     { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
@@ -426,17 +426,22 @@ export default function App() {
         loyaltyEventLogs.forEach(log => addLog(log.text, log.type));
         monthlyCityEvents.logs.forEach(log => addLog(log.text, log.type));
 
-        Object.keys(nextCities).forEach(key => {
-            const city = nextCities[key];
-            if (city.owner !== 'player') {
-                const growth = getAiGrowth();
-                city.troops += growth.troops;
-                city.agriculture += growth.agriculture;
-                city.commerce += growth.commerce;
-            }
-        });
-
         const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
+
+        aiFactionIds.forEach(factionId => {
+            const aiManagement = resolveAiFactionCityManagement({
+                factionId,
+                factionName: factions[factionId].name,
+                cities: getFactionCitiesFromState(factionId),
+                officers: nextOfficers,
+            });
+
+            Object.entries(aiManagement.cityUpdates).forEach(([cityId, updatedCity]) => {
+                nextCities[cityId] = updatedCity;
+            });
+
+            aiManagement.logs.forEach(log => addLog(log.text, log.type));
+        });
 
         aiFactionIds.forEach(factionId => {
             const playerCitiesNow = getFactionCitiesFromState('player');
