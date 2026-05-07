@@ -1,5 +1,5 @@
 export const ARCHITECTURE_STATUS = {
-  stage: 'foundation-established',
+  stage: 'src-contained-runtime',
   summary:
-    'Core playable prototype remains in origin/App.jsx. Data/engine/hooks/view folders are prepared for progressive extraction with gameplay parity protection.',
+    'Core playable runtime is now contained in src. Data, engine, hooks, and view layers all execute without depending on origin/App.jsx.',
 };

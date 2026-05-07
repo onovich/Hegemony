@@ -1,4 +1,4 @@
-import OriginApp from '../../../origin/App.jsx';
+import HegemonyGame from './HegemonyGame.jsx';
 import ScreenMountNote from '../components/ScreenMountNote.jsx';
 import { useArchitectureStatus } from '../../logic/hooks/useArchitectureStatus.js';
 
@@ -8,7 +8,7 @@ export default function HegemonyScreen() {
   return (
     <>
       <ScreenMountNote />
-      <OriginApp />
+      <HegemonyGame />
     </>
   );
 }

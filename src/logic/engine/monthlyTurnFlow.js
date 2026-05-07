@@ -6,8 +6,10 @@ import { resolveAiStageEvents } from './aiStageEvents.js';
 import { resolveAiFactionCityManagement } from './aiCityManagement.js';
 import { resolveAiMonthlyDiplomacy } from './aiDiplomacyResolution.js';
 import { resolveAiMonthlyBattles } from './aiBattleResolution.js';
+import { resolveHistoricalTimeline } from './historicalTimeline.js';
 
 export function resolveMonthlyTurnFlow({
+  date,
   nextCities,
   nextOfficers,
   resources,
@@ -41,6 +43,13 @@ export function resolveMonthlyTurnFlow({
     getCityRoleLabel,
   });
   const logs = [...playerTurnResult.logs];
+  const historicalTimelineResult = resolveHistoricalTimeline({
+    date,
+    nextCities,
+    nextOfficers,
+  });
+
+  logs.push(...historicalTimelineResult.logs);
   const aiStagePlanResult = resolveAiStagePlans({
     factions: nextFactions,
     getFactionCitiesFromState,

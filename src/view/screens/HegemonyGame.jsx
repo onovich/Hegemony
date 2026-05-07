@@ -13,12 +13,12 @@ import {
     INITIAL_OFFICERS,
     INITIAL_RESOURCES,
     MAX_AP,
-} from '../src/data/gameConfig.js';
-import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
-import { escalateHostility } from '../src/logic/engine/diplomacyStatusResolution.js';
-import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
-import { resolvePlayerBattle } from '../src/logic/engine/playerBattleResolution.js';
-import { resolvePlayerDiplomacyAction } from '../src/logic/engine/playerDiplomacyResolution.js';
+} from '../../data/gameConfig.js';
+import { advanceMonth } from '../../logic/engine/calendarEngine.js';
+import { escalateHostility } from '../../logic/engine/diplomacyStatusResolution.js';
+import { resolveMonthlyTurnFlow } from '../../logic/engine/monthlyTurnFlow.js';
+import { resolvePlayerBattle } from '../../logic/engine/playerBattleResolution.js';
+import { resolvePlayerDiplomacyAction } from '../../logic/engine/playerDiplomacyResolution.js';
 import {
     advanceTurnEconomy,
     calculateAttackFoodCost,
@@ -32,15 +32,15 @@ import {
     getEffectiveFactionStats,
     getExplorationBonus,
     getOfficerContributionMultiplier,
-} from '../src/logic/engine/gameBalance.js';
-import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
+} from '../../logic/engine/gameBalance.js';
+import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../../logic/engine/officerSpecialties.js';
 import {
     applyCityLeadershipRelationshipEffects,
     calculateRecruitRelationshipBonus,
     getCityLeadershipRelationshipEffect,
     getOfficerRelationLabel,
     getOfficerRelationScore,
-} from '../src/logic/engine/officerRelationships.js';
+} from '../../logic/engine/officerRelationships.js';
 
 const TAB_ITEMS = [
     { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
@@ -276,6 +276,7 @@ export default function App() {
         const getCityProfileFromState = (cityId, factionId) => getCityOperationalProfile(cityId, factionId, nextCities, nextOfficers);
 
         const turnResult = resolveMonthlyTurnFlow({
+            date: nextDate,
             nextCities,
             nextOfficers,
             resources,
