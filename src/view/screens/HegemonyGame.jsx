@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     Swords, Shield, Wheat, Coins, Users, UserPlus, 
-    Map, Scroll, Calendar, Home, Coffee, ShoppingBag, 
-    Tent, Flag, ArrowRight, MessageSquareWarning, Crown
+    Map, Scroll, Calendar, Home, Coffee, ShoppingBag,
+    Tent, Flag, ArrowRight, MessageSquareWarning, Crown,
+    FolderOpen, Menu, Save
 } from 'lucide-react';
 import {
     ARTIFACTS,
@@ -55,35 +56,30 @@ const TAB_ITEMS = [
     { id: 'DIPLOMACY', icon: Map, label: '外交', shortcut: '6' },
 ];
 
-const OPENING_OBJECTIVES = [
-    '先稳住洛阳的粮草与金库，避免首月断供。',
-    '尽快补足驻守武将，别让孤城在第一轮混战中失去指挥。',
-    '观察关东诸侯与关中强权的此消彼长，再决定先联谁、先打谁。',
-];
-
 // --- Utility Functions ---
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 const EMPTY_STATS = { cmd: 0, int: 0, pol: 0, cha: 0 };
+const cloneState = (value) => JSON.parse(JSON.stringify(value));
 
-export default function App() {
+export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGame, onReturnToTitle }) {
     // --- State ---
-    const [date, setDate] = useState(INITIAL_DATE);
-    const [ap, setAp] = useState(MAX_AP);
-    const [resources, setResources] = useState(INITIAL_RESOURCES);
-    const [cities, setCities] = useState(INITIAL_CITIES);
-    const [factions, setFactions] = useState(INITIAL_FACTIONS);
-    const [officers, setOfficers] = useState(INITIAL_OFFICERS);
-    const [inventory, setInventory] = useState([]);
-    const [logs, setLogs] = useState([{ id: 0, text: '公元190年，讨董烽烟四起，关东诸侯与关中强权并峙。您据守洛阳残垣，在群雄并起的乱世中争夺立足之地。', type: 'system' }]);
-    const [activeTab, setActiveTab] = useState('HOME');
-    const [activeCityId, setActiveCityId] = useState('luoyang');
-    const [gameResult, setGameResult] = useState(null);
+    const [date, setDate] = useState(() => cloneState(initialSnapshot?.date ?? INITIAL_DATE));
+    const [ap, setAp] = useState(() => initialSnapshot?.ap ?? MAX_AP);
+    const [resources, setResources] = useState(() => cloneState(initialSnapshot?.resources ?? INITIAL_RESOURCES));
+    const [cities, setCities] = useState(() => cloneState(initialSnapshot?.cities ?? INITIAL_CITIES));
+    const [factions, setFactions] = useState(() => cloneState(initialSnapshot?.factions ?? INITIAL_FACTIONS));
+    const [officers, setOfficers] = useState(() => cloneState(initialSnapshot?.officers ?? INITIAL_OFFICERS));
+    const [inventory, setInventory] = useState(() => cloneState(initialSnapshot?.inventory ?? []));
+    const [logs, setLogs] = useState(() => cloneState(initialSnapshot?.logs ?? [{ id: 0, text: '公元190年，讨董烽烟四起，关东诸侯与关中强权并峙。您据守洛阳残垣，在群雄并起的乱世中争夺立足之地。', type: 'system' }]));
+    const [activeTab, setActiveTab] = useState(() => initialSnapshot?.activeTab ?? 'HOME');
+    const [activeCityId, setActiveCityId] = useState(() => initialSnapshot?.activeCityId ?? 'luoyang');
+    const [gameResult, setGameResult] = useState(() => initialSnapshot?.gameResult ?? null);
     const [isDesktop, setIsDesktop] = useState(false);
-    const [pendingBattle, setPendingBattle] = useState(null);
-    const [selectedBattleStrategy, setSelectedBattleStrategy] = useState('steady');
-    const [battleInProgress, setBattleInProgress] = useState(false);
-    const [showOpeningPrologue, setShowOpeningPrologue] = useState(true);
+    const [pendingBattle, setPendingBattle] = useState(() => cloneState(initialSnapshot?.pendingBattle ?? null));
+    const [selectedBattleStrategy, setSelectedBattleStrategy] = useState(() => initialSnapshot?.selectedBattleStrategy ?? 'steady');
+    const [battleInProgress, setBattleInProgress] = useState(() => initialSnapshot?.battleInProgress ?? false);
+    const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
     const logsEndRef = useRef(null);
 
     // Auto-scroll logs
@@ -190,11 +186,22 @@ export default function App() {
     const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
     const factionRulerIds = new Set(Object.values(factions).map(faction => faction.ruler));
 
-    const dismissOpeningPrologue = (nextTab = 'HOME') => {
-        setShowOpeningPrologue(false);
-        setActiveTab(nextTab);
-        addLog('序章已毕。洛阳残局已握在您手中，接下来该由您决定先安内还是先谋外。', 'system');
-    };
+    const exportGameSnapshot = () => ({
+        date: cloneState(date),
+        ap,
+        resources: cloneState(resources),
+        cities: cloneState(cities),
+        factions: cloneState(factions),
+        officers: cloneState(officers),
+        inventory: cloneState(inventory),
+        logs: cloneState(logs),
+        activeTab,
+        activeCityId,
+        gameResult,
+        pendingBattle: cloneState(pendingBattle),
+        selectedBattleStrategy,
+        battleInProgress,
+    });
 
     useEffect(() => {
         const playerCities = Object.values(cities).filter(city => city.owner === 'player');
@@ -473,20 +480,69 @@ export default function App() {
 
             const tabMatch = TAB_ITEMS.find(item => item.shortcut === event.key);
             if (tabMatch) {
+                if (isSystemMenuOpen) {
+                    return;
+                }
                 event.preventDefault();
                 setActiveTab(tabMatch.id);
                 return;
             }
 
             if (event.key === 'n' || event.key === 'N') {
+                if (isSystemMenuOpen) {
+                    return;
+                }
                 event.preventDefault();
                 nextMonth();
+                return;
+            }
+
+            if (event.key === 'Escape' && isSystemMenuOpen) {
+                event.preventDefault();
+                setIsSystemMenuOpen(false);
             }
         };
 
         window.addEventListener('keydown', handleKeydown);
         return () => window.removeEventListener('keydown', handleKeydown);
-    }, [isDesktop, activeTab, date, ap, resources, cities, factions, officers, inventory, logs]);
+    }, [isDesktop, isSystemMenuOpen, activeTab, date, ap, resources, cities, factions, officers, inventory, logs]);
+
+    const handleSaveGame = () => {
+        if (battleInProgress) {
+            addLog('战斗演算进行中，暂时无法存档。', 'error');
+            return;
+        }
+
+        const result = onSaveGame?.(exportGameSnapshot());
+        if (result?.ok) {
+            addLog(result.message ?? '已保存当前战局。', 'system');
+            setIsSystemMenuOpen(false);
+            return;
+        }
+
+        addLog(result?.message ?? '存档失败。', 'error');
+    };
+
+    const handleLoadSavedGame = () => {
+        if (battleInProgress) {
+            addLog('战斗演算进行中，暂时无法读档。', 'error');
+            return;
+        }
+
+        const result = onLoadSavedGame?.();
+        if (!result?.ok) {
+            addLog(result?.message ?? '当前没有可读取的存档。', 'error');
+        }
+    };
+
+    const handleReturnToTitle = () => {
+        if (battleInProgress) {
+            addLog('战斗演算进行中，暂时无法回到标题页。', 'error');
+            return;
+        }
+
+        onReturnToTitle?.(exportGameSnapshot());
+    };
 
     // 2. Exploration (民间探访)
     const exploreLocation = (location) => {
@@ -735,6 +791,14 @@ export default function App() {
                         </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 lg:justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsSystemMenuOpen(true)}
+                            className="flex items-center rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-bold text-slate-100 shadow transition hover:border-amber-700/60 hover:text-amber-200"
+                        >
+                            <Menu className="mr-1 h-4 w-4" />
+                            设置
+                        </button>
                         <div className="flex items-center text-sm text-amber-200">
                             <Calendar className="mr-2 h-4 w-4 sm:h-5 sm:w-5"/>
                             公元 {date.year} 年 {date.month} 月
@@ -925,97 +989,67 @@ export default function App() {
         );
     };
 
-    const renderOpeningPrologue = () => {
-        if (!showOpeningPrologue) {
+    const renderSystemMenu = () => {
+        if (!isSystemMenuOpen) {
             return null;
         }
 
-        const ruler = getPlayerRuler();
-        const currentCity = getPlayerCity();
-        const totalTroops = getPlayerCities().reduce((sum, city) => sum + city.troops, 0);
-
         return (
-            <div className="fixed inset-0 z-40 flex items-stretch justify-center bg-slate-950/85 px-3 py-4 backdrop-blur-sm sm:px-6 sm:py-8">
-                <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-amber-900/40 bg-slate-950 shadow-2xl shadow-black/60">
-                    <div className="border-b border-amber-900/30 bg-[linear-gradient(135deg,rgba(120,53,15,0.55),rgba(15,23,42,0.95))] px-5 py-5 sm:px-8 sm:py-7">
-                        <div className="text-xs tracking-[0.35em] text-amber-300/80">公元 {date.year} 年 {date.month} 月 · 序章</div>
-                        <h2 className="mt-3 text-2xl font-bold tracking-[0.18em] text-amber-100 sm:text-4xl">洛阳残火</h2>
-                        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base">
-                            董卓挟天子西迁，帝都宫阙焚毁，关东诸侯各拥兵锋而来。旧秩序已碎，新霸业尚无归属。此时此刻，{ruler?.name ?? '主公'}率少数旧部留在{currentCity?.name ?? '洛阳'}废墟之间，准备从残火与流民中重新立旗。
-                        </p>
-                    </div>
-
-                    <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(120,53,15,0.12),transparent_45%)] p-5 sm:gap-6 sm:p-8 lg:grid-cols-[1.2fr,0.8fr]">
-                        <section className="space-y-4">
-                            <div className="rounded-2xl border border-amber-900/25 bg-black/25 p-4 sm:p-5">
-                                <div className="text-xs tracking-[0.25em] text-amber-400">你的处境</div>
-                                <p className="mt-3 text-sm leading-7 text-slate-300">
-                                    您并非盘踞一方已久的老牌诸侯，而是一个在帝都倾覆后趁乱整编人心、旧卒与物资的新势力。眼下既要向内安抚百姓、整饬城防，也要向外判断谁会先称盟友，谁又会先露刀兵。
-                                </p>
-                            </div>
-
-                            <div className="rounded-2xl border border-amber-900/25 bg-black/25 p-4 sm:p-5">
-                                <div className="text-xs tracking-[0.25em] text-amber-400">入局目标</div>
-                                <div className="mt-3 space-y-3">
-                                    {OPENING_OBJECTIVES.map((objective, index) => (
-                                        <div key={objective} className="flex gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-3 text-sm text-slate-300">
-                                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-700/50 bg-amber-950/50 text-xs font-bold text-amber-200">{index + 1}</div>
-                                            <div className="leading-6">{objective}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </section>
-
-                        <section className="space-y-4">
-                            <div className="rounded-2xl border border-amber-900/25 bg-black/30 p-4 sm:p-5">
-                                <div className="text-xs tracking-[0.25em] text-amber-400">起兵底子</div>
-                                <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-300">
-                                    <div className="rounded-xl bg-slate-900/70 p-3">
-                                        <div className="text-xs text-slate-500">据点</div>
-                                        <div className="mt-1 font-bold text-amber-100">{currentCity?.name ?? '洛阳'}</div>
-                                    </div>
-                                    <div className="rounded-xl bg-slate-900/70 p-3">
-                                        <div className="text-xs text-slate-500">现有兵力</div>
-                                        <div className="mt-1 font-bold text-amber-100">{totalTroops}</div>
-                                    </div>
-                                    <div className="rounded-xl bg-slate-900/70 p-3">
-                                        <div className="text-xs text-slate-500">军资</div>
-                                        <div className="mt-1 font-bold text-amber-100">金 {resources.gold}</div>
-                                    </div>
-                                    <div className="rounded-xl bg-slate-900/70 p-3">
-                                        <div className="text-xs text-slate-500">粮草</div>
-                                        <div className="mt-1 font-bold text-amber-100">粮 {resources.food}</div>
-                                    </div>
-                                </div>
-                                <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs leading-6 text-slate-400">
-                                    {currentCity?.name ?? '洛阳'}的定位是“{getCityRoleLabel(currentCity ?? { purpose: 'balanced' })}”，特色为“{currentCity?.specialty ?? '帝都中枢'}”。这意味着您开局拥有地利与名分，但也会更早卷入天下目光。
-                                </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-amber-900/25 bg-black/30 p-4 sm:p-5">
-                                <div className="text-xs tracking-[0.25em] text-amber-400">落子方向</div>
-                                <p className="mt-3 text-sm leading-7 text-slate-300">
-                                    若先求自保，就从内政与征募开始，顶住第一轮乱局；若想抢先入戏，就去军政和外交中寻找破口。这个天下不会给任何人准备期，您做出的第一个月度选择，就会决定这支势力今后像曹操、刘备，还是像被乱世吞没的无名军阀。
-                                </p>
-                            </div>
-                        </section>
-                    </div>
-
-                    <div className="flex flex-col gap-3 border-t border-amber-900/20 bg-slate-950/90 px-5 py-4 sm:flex-row sm:justify-between sm:px-8">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-3xl border border-amber-900/30 bg-slate-950/95 p-6 shadow-2xl shadow-black/60">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <div className="text-xs tracking-[0.25em] text-slate-500">系统设置</div>
+                            <h2 className="mt-2 text-2xl font-bold tracking-[0.12em] text-amber-300">军机菜单</h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-400">可以保存当前局势、读取本地存档，或先将战局挂起后回到标题页。</p>
+                        </div>
                         <button
                             type="button"
-                            onClick={() => dismissOpeningPrologue('HOME')}
-                            className="rounded-full border border-amber-700/50 bg-amber-900/40 px-5 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-800/50"
+                            onClick={() => setIsSystemMenuOpen(false)}
+                            className="rounded-full border border-slate-700 px-3 py-1 text-sm text-slate-300 transition hover:border-amber-700/60 hover:text-amber-200"
                         >
-                            执掌残局，从主城开始
+                            关闭
+                        </button>
+                    </div>
+
+                    <div className="mt-6 space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsSystemMenuOpen(false)}
+                            className="w-full rounded-2xl border border-amber-700/40 bg-amber-900/25 px-4 py-4 text-left transition hover:bg-amber-900/40"
+                        >
+                            <div className="text-base font-bold text-amber-100">回到游戏</div>
+                            <div className="mt-1 text-sm text-slate-400">关闭菜单并继续当前回合。</div>
                         </button>
                         <button
                             type="button"
-                            onClick={() => dismissOpeningPrologue('COUNCIL')}
-                            className="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-amber-800/40 hover:text-amber-200"
+                            onClick={handleSaveGame}
+                            className="flex w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-4 text-left transition hover:border-amber-700/50 hover:bg-slate-900"
                         >
-                            先看内政部署
+                            <span>
+                                <span className="block text-base font-bold text-amber-100">存档</span>
+                                <span className="mt-1 block text-sm text-slate-400">将当前战局写入本地单槽存档。</span>
+                            </span>
+                            <Save className="h-5 w-5 text-amber-300" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleLoadSavedGame}
+                            className="flex w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-4 text-left transition hover:border-amber-700/50 hover:bg-slate-900"
+                        >
+                            <span>
+                                <span className="block text-base font-bold text-amber-100">读档</span>
+                                <span className="mt-1 block text-sm text-slate-400">放弃未存进度，读取本地最新存档。</span>
+                            </span>
+                            <FolderOpen className="h-5 w-5 text-amber-300" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleReturnToTitle}
+                            className="w-full rounded-2xl border border-red-900/40 bg-red-950/30 px-4 py-4 text-left transition hover:border-red-700/60 hover:bg-red-950/45"
+                        >
+                            <div className="text-base font-bold text-red-100">回到标题</div>
+                            <div className="mt-1 text-sm text-slate-400">保留当前局势为挂起状态，并返回标题页。</div>
                         </button>
                     </div>
                 </div>
@@ -1663,7 +1697,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col font-sans select-none" style={{ backgroundImage: 'radial-gradient(circle at center, #1e293b 0%, #020617 100%)' }}>
-            {renderOpeningPrologue()}
+            {renderSystemMenu()}
             {renderHeader()}
             
             <div className="flex flex-1 overflow-hidden lg:px-6 lg:py-6">
