@@ -97,16 +97,25 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
     .filter(faction => faction.id !== 'player')
     .forEach((faction) => {
       const currentFaction = factions[faction.id];
-      const followUpAction = currentFaction.recentPlayerDiplomacyAction?.type ?? null;
+      const followUpActions = Array.isArray(currentFaction.recentPlayerDiplomacyActions)
+        ? currentFaction.recentPlayerDiplomacyActions
+        : currentFaction.recentPlayerDiplomacyAction?.type
+          ? [currentFaction.recentPlayerDiplomacyAction]
+          : [];
 
-      if (followUpAction) {
+      if (followUpActions.length > 0) {
         factions[faction.id] = {
           ...currentFaction,
+          recentPlayerDiplomacyActions: [],
           recentPlayerDiplomacyAction: null,
         };
 
-        const followUpPool = PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS[followUpAction] ?? [];
-        if (followUpPool.length) {
+        followUpActions.forEach((followUpAction) => {
+          const followUpPool = PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS[followUpAction.type] ?? [];
+          if (!followUpPool.length) {
+            return;
+          }
+
           const followUpEvent = followUpPool[randInt(0, followUpPool.length - 1)];
           logs.push(applyDiplomacyEvent({
             event: followUpEvent,
@@ -117,8 +126,9 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
             resourceDelta,
             factions,
           }));
-          return;
-        }
+        });
+
+        return;
       }
 
       const state = getDiplomacyState(factions[faction.id]);

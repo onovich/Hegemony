@@ -12,10 +12,17 @@ import {
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 
-function setRecentPlayerDiplomacyAction(faction, type) {
+function appendRecentPlayerDiplomacyAction(faction, type) {
+  const queuedActions = Array.isArray(faction.recentPlayerDiplomacyActions)
+    ? faction.recentPlayerDiplomacyActions
+    : faction.recentPlayerDiplomacyAction?.type
+      ? [faction.recentPlayerDiplomacyAction]
+      : [];
+
   return {
     ...faction,
-    recentPlayerDiplomacyAction: { type },
+    recentPlayerDiplomacyActions: [...queuedActions, { type }],
+    recentPlayerDiplomacyAction: null,
   };
 }
 
@@ -143,7 +150,7 @@ export function resolvePlayerDiplomacyAction({
     result.factions = {
       ...factions,
       [factionId]: {
-        ...setRecentPlayerDiplomacyAction(targetFaction, 'aidRequested'),
+        ...appendRecentPlayerDiplomacyAction(targetFaction, 'aidRequested'),
         relation: nextRelation,
       },
     };
@@ -186,7 +193,7 @@ export function resolvePlayerDiplomacyAction({
     result.factions = {
       ...factions,
       [factionId]: brokeCeasefire
-        ? setRecentPlayerDiplomacyAction(
+        ? appendRecentPlayerDiplomacyAction(
           escalateHostility({
             ...targetFaction,
             relation: nextRelation,
@@ -264,7 +271,7 @@ export function resolvePlayerDiplomacyAction({
     } else {
       result.factions = {
         ...result.factions,
-        [factionId]: setRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeFailed'),
+        [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeFailed'),
       };
       result.logs.push({
         text: `劝降未成！【${targetOfficer.name}】暂未动摇，只是让【${targetFaction.name}】对我方更加戒备。`,
