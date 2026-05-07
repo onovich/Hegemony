@@ -17,19 +17,16 @@ import {
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
 import { escalateHostility } from '../src/logic/engine/diplomacyStatusResolution.js';
 import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
+import { resolvePlayerBattle } from '../src/logic/engine/playerBattleResolution.js';
 import { resolvePlayerDiplomacyAction } from '../src/logic/engine/playerDiplomacyResolution.js';
 import {
     advanceTurnEconomy,
     calculateAttackFoodCost,
-    calculateBattlePower,
-    calculateDefeatLosses,
     calculateDevelopmentGain,
     calculateDraftRecruits,
     calculateRecruitChance,
     calculateRewardBoost,
     calculateTrainingBoost,
-    calculateVictoryLosses,
-    getCapturedCityTroops,
     getCityRoleLabel,
     getDiplomacyStateLabel,
     getEffectiveFactionStats,
@@ -518,69 +515,28 @@ export default function App() {
             }
 
             addLog(`🔥 您对【${targetCity.name}】(${factions[targetFaction].name}) 发动了战争！`, 'warning');
-
-            // Simple Battle Calculation
-            const myPower = calculateBattlePower({
-                troops: myCity.troops,
-                cmd: stats.cmd,
-                morale: myCity.morale,
-            });
-            const enemyPower = calculateBattlePower({
-                troops: targetCity.troops,
-                cmd: enemyStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
-                morale: targetCity.morale,
-                defense: targetCity.defense,
-                isDefender: true,
+            const battleResolution = resolvePlayerBattle({
+                cities,
+                officers,
+                resources: {
+                    ...resources,
+                    food: resources.food - costFood,
+                },
+                factions,
+                myCity,
+                targetCity,
+                attackerStats: stats,
+                defenderStats: enemyStats,
             });
 
             setTimeout(() => {
-                if (myPower > enemyPower) {
-                    // Win
-                    const troopsLost = calculateVictoryLosses(targetCity.troops);
-                    const capturedTroops = getCapturedCityTroops(targetCity.troops);
-                    
-                    setCities(prev => ({ 
-                        ...prev, 
-                        [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost) },
-                        [targetCityId]: { ...prev[targetCityId], owner: 'player', governorId: null, commanderId: null, troops: capturedTroops, morale: 60 }
-                    }));
-                    
-                    // Capture officers
-                    let capturedNames = [];
-                    setOfficers(prev => prev.map(o => {
-                        if (o.faction === targetFaction && o.cityId === targetCityId && chance(50)) {
-                            capturedNames.push(o.name);
-                            return { ...o, faction: 'player', cityId: targetCityId, state: 'active', loyalty: 40 };
-                        }
-                        // Rest flee and become free
-                        if (o.faction === targetFaction && o.cityId === targetCityId) return { ...o, faction: 'free', cityId: null, state: 'discovered' };
-                        return o;
-                    }));
+                setCities(battleResolution.cities);
+                setOfficers(battleResolution.officers);
+                setResources(battleResolution.resources);
+                battleResolution.logs.forEach(log => addLog(log.text, log.type));
 
-                    // Spoil of war
-                    const spoilGold = Math.floor(targetCity.commerce * 10);
-                    const spoilFood = Math.floor(targetCity.agriculture * 20);
-                    setResources(prev => ({ ...prev, gold: prev.gold + spoilGold, food: prev.food + spoilFood, reputation: prev.reputation + 5 }));
-
-                    let logMsg = `⚔️ 战斗胜利！您成功攻占了【${targetCity.name}】！我军损失 ${troopsLost} 兵力。缴获资金 ${spoilGold}，粮草 ${spoilFood}。`;
-                    if (capturedNames.length > 0) logMsg += `俘虏并收编了敌将：${capturedNames.join(', ')}。`;
-                    addLog(logMsg, 'success');
-
-                    const remainingEnemyCities = Object.values(cities).filter(c => c.owner !== 'player' && c.id !== targetCityId);
-                    if (remainingEnemyCities.length === 0) {
-                        addLog('⭐⭐⭐ 捷报！您已攻克所有敌城，一统天下，成就霸业！ ⭐⭐⭐', 'success');
-                        setTimeout(() => alert('恭喜您，一统天下！'), 100);
-                    }
-
-                } else {
-                    // Lose
-                    const troopsLost = calculateDefeatLosses(myCity.troops);
-                    setCities(prev => ({
-                        ...prev,
-                        [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost), morale: Math.max(10, prev[myCity.id].morale - GAME_BALANCE.military.defeatMoralePenalty) },
-                        [targetCityId]: { ...prev[targetCityId], troops: Math.max(0, Math.floor(prev[targetCityId].troops * GAME_BALANCE.military.defenderTroopLossRateOnRepel)) }
-                    }));
-                    addLog(`⚔️ 战斗失败！敌方城防坚固，我军大败而归，损失了 ${troopsLost} 兵力，士气大跌！`, 'error');
+                if (battleResolution.gameResult === 'victory') {
+                    setTimeout(() => alert('恭喜您，一统天下！'), 100);
                 }
             }, 1000); // Small delay for effect
         }
