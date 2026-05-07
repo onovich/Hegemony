@@ -55,6 +55,12 @@ const TAB_ITEMS = [
     { id: 'DIPLOMACY', icon: Map, label: '外交', shortcut: '6' },
 ];
 
+const OPENING_OBJECTIVES = [
+    '先稳住洛阳的粮草与金库，避免首月断供。',
+    '尽快补足驻守武将，别让孤城在第一轮混战中失去指挥。',
+    '观察关东诸侯与关中强权的此消彼长，再决定先联谁、先打谁。',
+];
+
 // --- Utility Functions ---
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
@@ -77,6 +83,7 @@ export default function App() {
     const [pendingBattle, setPendingBattle] = useState(null);
     const [selectedBattleStrategy, setSelectedBattleStrategy] = useState('steady');
     const [battleInProgress, setBattleInProgress] = useState(false);
+    const [showOpeningPrologue, setShowOpeningPrologue] = useState(true);
     const logsEndRef = useRef(null);
 
     // Auto-scroll logs
@@ -182,6 +189,12 @@ export default function App() {
     };
     const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
     const factionRulerIds = new Set(Object.values(factions).map(faction => faction.ruler));
+
+    const dismissOpeningPrologue = (nextTab = 'HOME') => {
+        setShowOpeningPrologue(false);
+        setActiveTab(nextTab);
+        addLog('序章已毕。洛阳残局已握在您手中，接下来该由您决定先安内还是先谋外。', 'system');
+    };
 
     useEffect(() => {
         const playerCities = Object.values(cities).filter(city => city.owner === 'player');
@@ -912,6 +925,104 @@ export default function App() {
         );
     };
 
+    const renderOpeningPrologue = () => {
+        if (!showOpeningPrologue) {
+            return null;
+        }
+
+        const ruler = getPlayerRuler();
+        const currentCity = getPlayerCity();
+        const totalTroops = getPlayerCities().reduce((sum, city) => sum + city.troops, 0);
+
+        return (
+            <div className="fixed inset-0 z-40 flex items-stretch justify-center bg-slate-950/85 px-3 py-4 backdrop-blur-sm sm:px-6 sm:py-8">
+                <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-amber-900/40 bg-slate-950 shadow-2xl shadow-black/60">
+                    <div className="border-b border-amber-900/30 bg-[linear-gradient(135deg,rgba(120,53,15,0.55),rgba(15,23,42,0.95))] px-5 py-5 sm:px-8 sm:py-7">
+                        <div className="text-xs tracking-[0.35em] text-amber-300/80">公元 {date.year} 年 {date.month} 月 · 序章</div>
+                        <h2 className="mt-3 text-2xl font-bold tracking-[0.18em] text-amber-100 sm:text-4xl">洛阳残火</h2>
+                        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base">
+                            董卓挟天子西迁，帝都宫阙焚毁，关东诸侯各拥兵锋而来。旧秩序已碎，新霸业尚无归属。此时此刻，{ruler?.name ?? '主公'}率少数旧部留在{currentCity?.name ?? '洛阳'}废墟之间，准备从残火与流民中重新立旗。
+                        </p>
+                    </div>
+
+                    <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(120,53,15,0.12),transparent_45%)] p-5 sm:gap-6 sm:p-8 lg:grid-cols-[1.2fr,0.8fr]">
+                        <section className="space-y-4">
+                            <div className="rounded-2xl border border-amber-900/25 bg-black/25 p-4 sm:p-5">
+                                <div className="text-xs tracking-[0.25em] text-amber-400">你的处境</div>
+                                <p className="mt-3 text-sm leading-7 text-slate-300">
+                                    您并非盘踞一方已久的老牌诸侯，而是一个在帝都倾覆后趁乱整编人心、旧卒与物资的新势力。眼下既要向内安抚百姓、整饬城防，也要向外判断谁会先称盟友，谁又会先露刀兵。
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-amber-900/25 bg-black/25 p-4 sm:p-5">
+                                <div className="text-xs tracking-[0.25em] text-amber-400">入局目标</div>
+                                <div className="mt-3 space-y-3">
+                                    {OPENING_OBJECTIVES.map((objective, index) => (
+                                        <div key={objective} className="flex gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-3 text-sm text-slate-300">
+                                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-700/50 bg-amber-950/50 text-xs font-bold text-amber-200">{index + 1}</div>
+                                            <div className="leading-6">{objective}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="rounded-2xl border border-amber-900/25 bg-black/30 p-4 sm:p-5">
+                                <div className="text-xs tracking-[0.25em] text-amber-400">起兵底子</div>
+                                <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-300">
+                                    <div className="rounded-xl bg-slate-900/70 p-3">
+                                        <div className="text-xs text-slate-500">据点</div>
+                                        <div className="mt-1 font-bold text-amber-100">{currentCity?.name ?? '洛阳'}</div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-900/70 p-3">
+                                        <div className="text-xs text-slate-500">现有兵力</div>
+                                        <div className="mt-1 font-bold text-amber-100">{totalTroops}</div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-900/70 p-3">
+                                        <div className="text-xs text-slate-500">军资</div>
+                                        <div className="mt-1 font-bold text-amber-100">金 {resources.gold}</div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-900/70 p-3">
+                                        <div className="text-xs text-slate-500">粮草</div>
+                                        <div className="mt-1 font-bold text-amber-100">粮 {resources.food}</div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs leading-6 text-slate-400">
+                                    {currentCity?.name ?? '洛阳'}的定位是“{getCityRoleLabel(currentCity ?? { purpose: 'balanced' })}”，特色为“{currentCity?.specialty ?? '帝都中枢'}”。这意味着您开局拥有地利与名分，但也会更早卷入天下目光。
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-amber-900/25 bg-black/30 p-4 sm:p-5">
+                                <div className="text-xs tracking-[0.25em] text-amber-400">落子方向</div>
+                                <p className="mt-3 text-sm leading-7 text-slate-300">
+                                    若先求自保，就从内政与征募开始，顶住第一轮乱局；若想抢先入戏，就去军政和外交中寻找破口。这个天下不会给任何人准备期，您做出的第一个月度选择，就会决定这支势力今后像曹操、刘备，还是像被乱世吞没的无名军阀。
+                                </p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="flex flex-col gap-3 border-t border-amber-900/20 bg-slate-950/90 px-5 py-4 sm:flex-row sm:justify-between sm:px-8">
+                        <button
+                            type="button"
+                            onClick={() => dismissOpeningPrologue('HOME')}
+                            className="rounded-full border border-amber-700/50 bg-amber-900/40 px-5 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-800/50"
+                        >
+                            执掌残局，从主城开始
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => dismissOpeningPrologue('COUNCIL')}
+                            className="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-amber-800/40 hover:text-amber-200"
+                        >
+                            先看内政部署
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     // --- Tab Contents ---
 
     const renderHome = () => {
@@ -1552,6 +1663,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col font-sans select-none" style={{ backgroundImage: 'radial-gradient(circle at center, #1e293b 0%, #020617 100%)' }}>
+            {renderOpeningPrologue()}
             {renderHeader()}
             
             <div className="flex flex-1 overflow-hidden lg:px-6 lg:py-6">
