@@ -5,6 +5,8 @@ import {
   getAlienateSuccessChance,
   getEffectiveFactionStats,
   getGiftRelationBoost,
+  getPeaceRelationBoost,
+  getPeaceRequestChance,
 } from './gameBalance.js';
 
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -14,6 +16,7 @@ function getAiDiplomacyProfile(faction) {
   return {
     giftChanceMultiplier: 1,
     giftBoostMultiplier: 1,
+    peaceChanceMultiplier: 1,
     pressureChanceMultiplier: 1,
     pressureDropMultiplier: 1,
     pressureTroopRatioMultiplier: 1,
@@ -26,6 +29,7 @@ function getGoalDiplomacyModifiers(aiPlan = null) {
   return {
     giftChanceMultiplier: 1,
     giftBoostMultiplier: 1,
+    peaceChanceMultiplier: 1,
     pressureChanceMultiplier: 1,
     pressureDropMultiplier: 1,
     pressureTroopRatioMultiplier: 1,
@@ -69,6 +73,47 @@ export function resolveAiMonthlyDiplomacy({
       const isMilitarilyStronger = playerTroops > 0
         ? factionTroops >= playerTroops * (GAME_BALANCE.ai.diplomacy.pressureTroopRatio * diplomacyProfile.pressureTroopRatioMultiplier * goalDiplomacyModifiers.pressureTroopRatioMultiplier)
         : true;
+      const isMilitarilyWeaker = playerTroops > 0
+        ? factionTroops <= playerTroops * GAME_BALANCE.ai.diplomacy.peaceWeakTroopRatio
+        : false;
+
+      if (
+        ceasefireTurns <= 0 &&
+        playerCities.length > 0 &&
+        isMilitarilyWeaker &&
+        (relation <= GAME_BALANCE.ai.diplomacy.peaceMaxRelation || (nextFactions[faction.id].hostilityTurns ?? 0) > 0) &&
+        chance(GAME_BALANCE.ai.diplomacy.peaceChance * diplomacyProfile.peaceChanceMultiplier * goalDiplomacyModifiers.peaceChanceMultiplier)
+      ) {
+        if (chance(getPeaceRequestChance({
+          playerCha: factionStats.cha,
+          playerInt: factionStats.int,
+          relation,
+          ownTroops: factionTroops,
+          targetTroops: playerTroops,
+          hostilityTurns: nextFactions[faction.id].hostilityTurns ?? 0,
+        }))) {
+          const relationBoost = getPeaceRelationBoost();
+          nextFactions[faction.id] = establishCeasefire({
+            ...nextFactions[faction.id],
+            relation: Math.min(100, relation + relationBoost),
+          });
+          logs.push({
+            text: `【${faction.name}】见战局不利，主动遣使议和，我方暂允罢兵 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月，关系回升 ${relationBoost}。`,
+            type: 'system',
+          });
+          return;
+        }
+
+        nextFactions[faction.id] = {
+          ...nextFactions[faction.id],
+          relation: Math.max(0, relation - GAME_BALANCE.diplomacy.peaceFailureRelationPenalty),
+        };
+        logs.push({
+          text: `【${faction.name}】试图遣使求和，但我方未予理会，双方关系继续恶化。`,
+          type: 'warning',
+        });
+        return;
+      }
 
       if (
         ceasefireTurns <= 0 &&

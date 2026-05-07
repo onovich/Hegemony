@@ -84,6 +84,7 @@ export const INITIAL_FACTIONS = {
     aiDiplomacyProfile: {
       giftChanceMultiplier: 0.65,
       giftBoostMultiplier: 0.85,
+      peaceChanceMultiplier: 0.72,
       pressureChanceMultiplier: 1.3,
       pressureDropMultiplier: 1.2,
       pressureTroopRatioMultiplier: 0.95,
@@ -132,6 +133,7 @@ export const INITIAL_FACTIONS = {
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.4,
       giftBoostMultiplier: 1.25,
+      peaceChanceMultiplier: 1.35,
       pressureChanceMultiplier: 0.6,
       pressureDropMultiplier: 0.75,
       pressureTroopRatioMultiplier: 1.08,
@@ -180,6 +182,7 @@ export const INITIAL_FACTIONS = {
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.05,
       giftBoostMultiplier: 1.05,
+      peaceChanceMultiplier: 1.05,
       pressureChanceMultiplier: 0.95,
       pressureDropMultiplier: 0.95,
       pressureTroopRatioMultiplier: 1,
@@ -536,6 +539,9 @@ export const GAME_BALANCE = {
       giftMinRelation: 38,
       giftBoostFactor: 0.7,
       giftMinBoost: 4,
+      peaceChance: 24,
+      peaceMaxRelation: 34,
+      peaceWeakTroopRatio: 0.92,
       pressureChance: 34,
       pressureTroopRatio: 1.08,
       pressureRelationDropMin: 6,
@@ -568,6 +574,7 @@ export const GAME_BALANCE = {
         diplomacyModifiers: {
           giftChanceMultiplier: 0.72,
           giftBoostMultiplier: 0.85,
+          peaceChanceMultiplier: 0.7,
           pressureChanceMultiplier: 1.25,
           pressureDropMultiplier: 1.15,
           pressureTroopRatioMultiplier: 0.96,
@@ -584,6 +591,7 @@ export const GAME_BALANCE = {
         diplomacyModifiers: {
           giftChanceMultiplier: 1.05,
           giftBoostMultiplier: 1.05,
+          peaceChanceMultiplier: 1.2,
           pressureChanceMultiplier: 0.8,
           pressureDropMultiplier: 0.9,
           pressureTroopRatioMultiplier: 1.04,
@@ -600,6 +608,7 @@ export const GAME_BALANCE = {
         diplomacyModifiers: {
           giftChanceMultiplier: 1.35,
           giftBoostMultiplier: 1.2,
+          peaceChanceMultiplier: 1.35,
           pressureChanceMultiplier: 0.62,
           pressureDropMultiplier: 0.82,
           pressureTroopRatioMultiplier: 1.08,
