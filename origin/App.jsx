@@ -15,10 +15,9 @@ import {
     MAX_AP,
 } from '../src/data/gameConfig.js';
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
-import { resolvePlayerMonthlyTurn } from '../src/logic/engine/playerTurnResolution.js';
+import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
 import {
     advanceTurnEconomy,
-    advanceFactionEconomy,
     calculateAttackFoodCost,
     calculateBattlePower,
     calculateDefeatLosses,
@@ -38,8 +37,6 @@ import {
     getGiftRelationBoost,
     getOfficerContributionMultiplier,
 } from '../src/logic/engine/gameBalance.js';
-import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
-import { resolveAiMonthlyBattles } from '../src/logic/engine/aiBattleResolution.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 import {
     applyCityLeadershipRelationshipEffects,
@@ -282,20 +279,12 @@ export default function App() {
         ));
         const getCityProfileFromState = (cityId, factionId) => getCityOperationalProfile(cityId, factionId, nextCities, nextOfficers);
 
-        const myCities = getFactionCitiesFromState('player');
-        const myOfficers = getFactionOfficersFromState('player');
-        const economy = advanceFactionEconomy({
-            cities: myCities,
-            officerCount: myOfficers.length,
-            getCityStats: (city) => getCityProfileFromState(city.id, 'player').economyStats,
-        });
-        const playerTurnResult = resolvePlayerMonthlyTurn({
+        const turnResult = resolveMonthlyTurnFlow({
             nextCities,
             nextOfficers,
             resources,
             factions,
             factionRulerIds,
-            economy,
             getFactionCitiesFromState,
             getFactionOfficersFromState,
             getCityProfileFromState,
@@ -304,54 +293,21 @@ export default function App() {
 
         setResources(prev => ({
             ...prev,
-            ...playerTurnResult.resources,
+            ...turnResult.resources,
         }));
 
-        playerTurnResult.logs.forEach(log => addLog(log.text, log.type));
-
-        const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
-
-        aiFactionIds.forEach(factionId => {
-            const aiManagement = resolveAiFactionCityManagement({
-                factionId,
-                factionName: factions[factionId].name,
-                cities: getFactionCitiesFromState(factionId),
-                officers: nextOfficers,
-            });
-
-            Object.entries(aiManagement.cityUpdates).forEach(([cityId, updatedCity]) => {
-                nextCities[cityId] = updatedCity;
-            });
-
-            aiManagement.logs.forEach(log => addLog(log.text, log.type));
-        });
-
-        const aiBattleResult = resolveAiMonthlyBattles({
-            nextCities,
-            nextOfficers,
-            factions,
-            getFactionCitiesFromState,
-            getCityProfileFromState,
-        });
-
-        aiBattleResult.logs.forEach(log => addLog(log.text, log.type));
+        turnResult.logs.forEach(log => addLog(log.text, log.type));
 
         setOfficers(nextOfficers);
         setCities(nextCities);
-        
-        const remainingPlayerCities = Object.values(nextCities).filter(city => city.owner === 'player');
-        const enemyCities = Object.values(nextCities).filter(city => city.owner !== 'player');
-        if (remainingPlayerCities.length === 0) {
-            setOfficers(nextOfficers);
-            setCities(nextCities);
+
+        if (turnResult.gameResult === 'defeat') {
             setGameResult('defeat');
-            addLog('☠️ 我方城池尽失，基业崩溃，霸业未成而中道崩殂！', 'error');
             setTimeout(() => alert('游戏结束：我方城池尽失。'), 100);
             return;
         }
 
-        if (enemyCities.length === 0) {
-            addLog('⭐⭐⭐ 捷报！您已攻克所有敌城，一统天下，成就霸业！ ⭐⭐⭐', 'success');
+        if (turnResult.gameResult === 'victory') {
             alert("恭喜您，一统天下！");
         }
     };
