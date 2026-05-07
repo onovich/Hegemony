@@ -58,6 +58,7 @@ import {
     getCityLeadershipRelationshipEffect,
     getOfficerRelationLabel,
     getOfficerRelationScore,
+    resolveMonthlyOfficerRelationshipEvents,
 } from '../src/logic/engine/officerRelationships.js';
 
 const TAB_ITEMS = [
@@ -466,19 +467,39 @@ export default function App() {
             getCityProfile: (cityId) => getCityProfileFromState(cityId, 'player'),
         });
 
+        const monthlyOfficerEvents = resolveMonthlyOfficerRelationshipEvents({
+            cities: getFactionCitiesFromState('player'),
+            officers: nextOfficers,
+            factionId: 'player',
+        });
+
         Object.entries(monthlyCityEvents.cityUpdates).forEach(([cityId, updatedCity]) => {
             nextCities[cityId] = updatedCity;
         });
 
+        Object.entries(monthlyOfficerEvents.cityUpdates).forEach(([cityId, updatedCity]) => {
+            nextCities[cityId] = updatedCity;
+        });
+
+        Object.entries(monthlyOfficerEvents.officerLoyaltyChanges).forEach(([officerId, loyaltyDelta]) => {
+            const targetOfficer = nextOfficers.find(officer => officer.id === officerId);
+            if (!targetOfficer) {
+                return;
+            }
+
+            targetOfficer.loyalty = Math.max(0, Math.min(100, targetOfficer.loyalty + loyaltyDelta));
+        });
+
         setResources(prev => ({
             ...prev,
-            gold: Math.max(0, newGold - stolenGold + tradeGold + monthlyCityEvents.resourceDelta.gold),
+            gold: Math.max(0, newGold - stolenGold + tradeGold + monthlyCityEvents.resourceDelta.gold + monthlyOfficerEvents.resourceDelta.gold),
             food: newFood + tradeFood + monthlyCityEvents.resourceDelta.food,
-            reputation: Math.max(0, prev.reputation + monthlyCityEvents.resourceDelta.reputation),
+            reputation: Math.max(0, prev.reputation + monthlyCityEvents.resourceDelta.reputation + monthlyOfficerEvents.resourceDelta.reputation),
         }));
 
         loyaltyEventLogs.forEach(log => addLog(log.text, log.type));
         monthlyCityEvents.logs.forEach(log => addLog(log.text, log.type));
+        monthlyOfficerEvents.logs.forEach(log => addLog(log.text, log.type));
 
         const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
 
@@ -1193,6 +1214,9 @@ export default function App() {
                     </div>
                     <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                         主官配合：{currentCityProfile.leadershipRelation.relationLabel} {currentCityProfile.governor && currentCityProfile.commander && currentCityProfile.governor.id !== currentCityProfile.commander.id ? `(相性 ${currentCityProfile.leadershipRelation.relationScore})` : '（待成型）'}
+                    </div>
+                    <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                        同城人物事件：驻守武将之间若是知己，月度可能触发协力增益；若是死敌，则可能引发内耗。
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>

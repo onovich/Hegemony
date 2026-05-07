@@ -5,6 +5,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 const EMPTY_CITY_EFFECT = {
   key: 'neutral',
   relationScore: 0,
@@ -176,5 +180,110 @@ export function applyCityLeadershipRelationshipEffects({ economyStats, militaryS
     relationshipEffect: leadershipEffect,
     economyStats: applyStatDelta(economyStats, leadershipEffect.economy),
     militaryStats: applyStatDelta(militaryStats, leadershipEffect.military),
+  };
+}
+
+function getRelationshipTier(score) {
+  if (score >= GAME_BALANCE.relationships.loyaltyStrongThreshold) {
+    return 'strongPositive';
+  }
+
+  if (score >= GAME_BALANCE.relationships.loyaltyPositiveThreshold) {
+    return 'positive';
+  }
+
+  if (score <= -GAME_BALANCE.relationships.loyaltyStrongThreshold) {
+    return 'strongNegative';
+  }
+
+  if (score <= GAME_BALANCE.relationships.loyaltyNegativeThreshold) {
+    return 'negative';
+  }
+
+  return 'neutral';
+}
+
+function getStrongestOfficerPair(officers) {
+  let bestPair = null;
+
+  for (let index = 0; index < officers.length; index += 1) {
+    for (let offset = index + 1; offset < officers.length; offset += 1) {
+      const first = officers[index];
+      const second = officers[offset];
+      const score = getOfficerRelationScore(first, second);
+
+      if (!bestPair || Math.abs(score) > Math.abs(bestPair.score)) {
+        bestPair = { first, second, score };
+      }
+    }
+  }
+
+  return bestPair;
+}
+
+function getCityOfficerEventChance(score) {
+  return Math.min(
+    GAME_BALANCE.relationships.cityOfficerEvents.maxChance,
+    GAME_BALANCE.relationships.cityOfficerEvents.baseChance + Math.abs(score) * GAME_BALANCE.relationships.cityOfficerEvents.scoreChanceFactor,
+  );
+}
+
+export function resolveMonthlyOfficerRelationshipEvents({ cities, officers, factionId }) {
+  const cityUpdates = {};
+  const officerLoyaltyChanges = {};
+  const resourceDelta = { gold: 0, food: 0, reputation: 0 };
+  const logs = [];
+
+  cities.forEach((city) => {
+    const stationedOfficers = officers.filter((officer) => (
+      officer.faction === factionId &&
+      officer.state === 'active' &&
+      officer.cityId === city.id
+    ));
+
+    if (stationedOfficers.length < 2) {
+      return;
+    }
+
+    const pair = getStrongestOfficerPair(stationedOfficers);
+    if (!pair) {
+      return;
+    }
+
+    const tier = getRelationshipTier(pair.score);
+    if (tier === 'neutral') {
+      return;
+    }
+
+    if (Math.random() * 100 >= getCityOfficerEventChance(pair.score)) {
+      return;
+    }
+
+    const config = GAME_BALANCE.relationships.cityOfficerEvents[tier];
+    const moraleDelta = randInt(config.moraleMin, config.moraleMax);
+    const loyaltyDelta = randInt(config.loyaltyMin, config.loyaltyMax);
+    const goldDelta = randInt(config.goldMin, config.goldMax);
+    const isPositive = pair.score > 0;
+    const nextCity = { ...(cityUpdates[city.id] ?? city) };
+
+    nextCity.morale = clamp(nextCity.morale + (isPositive ? moraleDelta : -moraleDelta), 0, 100);
+    cityUpdates[city.id] = nextCity;
+    resourceDelta.gold += isPositive ? goldDelta : -goldDelta;
+    officerLoyaltyChanges[pair.first.id] = (officerLoyaltyChanges[pair.first.id] ?? 0) + (isPositive ? loyaltyDelta : -loyaltyDelta);
+    officerLoyaltyChanges[pair.second.id] = (officerLoyaltyChanges[pair.second.id] ?? 0) + (isPositive ? loyaltyDelta : -loyaltyDelta);
+
+    logs.push({
+      text: isPositive
+        ? `【${city.name}】中，【${pair.first.name}】与【${pair.second.name}】意气相投，共襄城务，城中士气提升 ${moraleDelta}，额外获得 ${goldDelta} 金。`
+        : `【${city.name}】中，【${pair.first.name}】与【${pair.second.name}】龃龉日深，内耗不断，城中士气下降 ${moraleDelta}，额外损失 ${goldDelta} 金。`,
+      type: isPositive ? 'success' : 'warning',
+    });
+  });
+
+  return {
+    cityUpdates,
+    officerLoyaltyChanges,
+    resourceDelta,
+    logs,
   };
 }
