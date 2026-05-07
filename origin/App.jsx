@@ -19,6 +19,7 @@ import { establishCeasefire, escalateHostility } from '../src/logic/engine/diplo
 import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
 import {
     advanceTurnEconomy,
+    getAidPackage,
     calculateAttackFoodCost,
     calculateBattlePower,
     calculateDefeatLosses,
@@ -687,6 +688,41 @@ export default function App() {
                 addLog(`【${targetFaction.name}】已进入通商友邦状态，并约定停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'success');
             } else if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold && previousCeasefireTurns < GAME_BALANCE.diplomacy.ceasefireTurns) {
                 addLog(`与【${targetFaction.name}】的停战约定刷新为 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'system');
+            }
+        }
+        else if (action === 'aid') {
+            if (targetFaction.hostilityTurns > 0) {
+                addLog(`【${targetFaction.name}】正与我方敌意升温，当前不可能回应求援。`, 'error');
+                setAp(prev => prev + 1);
+                return;
+            }
+
+            if (targetFaction.relation < GAME_BALANCE.diplomacy.tradeThreshold) {
+                addLog(`只有通商友邦才会出手相助，当前与【${targetFaction.name}】的关系还不够稳固。`, 'error');
+                setAp(prev => prev + 1);
+                return;
+            }
+
+            const aidPackage = getAidPackage(stats.pol, stats.cha);
+            const nextRelation = Math.max(0, targetFaction.relation - aidPackage.relationCost);
+
+            setResources(prev => ({
+                ...prev,
+                gold: prev.gold + aidPackage.gold,
+                food: prev.food + aidPackage.food,
+            }));
+            setFactions(prev => ({
+                ...prev,
+                [factionId]: {
+                    ...prev[factionId],
+                    relation: nextRelation,
+                },
+            }));
+
+            addLog(`你向【${targetFaction.name}】陈情求援，对方拨来 ${aidPackage.gold} 金、${aidPackage.food} 粮以资军政。`, 'success');
+            addLog(`这次求援消耗了双方 ${aidPackage.relationCost} 点交情。`, 'system');
+            if (targetFaction.relation >= GAME_BALANCE.diplomacy.tradeThreshold && nextRelation < GAME_BALANCE.diplomacy.tradeThreshold) {
+                addLog(`【${targetFaction.name}】认为我方索求过繁，双方暂时退出通商友邦状态。`, 'warning');
             }
         }
         else if (action === 'pressure') {
@@ -1379,7 +1415,7 @@ export default function App() {
                                         : (faction.hostilityTurns ?? 0) > 0
                                             ? `敌对升级剩余 ${faction.hostilityTurns} 个月，AI 更易施压与出兵，边境压力也会加重。`
                                         : faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold
-                                        ? '每月可获得通商收益。'
+                                            ? '每月可获得通商收益，也可主动向其求援。'
                                         : faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold
                                             ? '每月可能触发边境施压，压低我方城池士气。'
                                             : '当前暂无额外外交结算效果。'}
@@ -1392,6 +1428,14 @@ export default function App() {
                                     className="w-full bg-amber-800 hover:bg-amber-700 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center"
                                 >
                                     献礼结交 (耗:1政令, 500金)
+                                </button>
+                                <button 
+                                    onClick={() => diplomacyAction('aid', faction.id)}
+                                    className="w-full bg-emerald-800 hover:bg-emerald-700 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                    title="仅通商友邦可用，换取一笔即时金粮支援，但会消耗双方关系"
+                                    disabled={faction.relation < GAME_BALANCE.diplomacy.tradeThreshold || faction.hostilityTurns > 0}
+                                >
+                                    请求援助 (耗:1政令)
                                 </button>
                                 <button 
                                     onClick={() => diplomacyAction('pressure', faction.id)}

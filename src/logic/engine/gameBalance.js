@@ -339,6 +339,25 @@ export function getTradeIncomeBonus() {
   };
 }
 
+export function getAidPackage(pol, cha) {
+  return {
+    gold: Math.floor(
+      pol * GAME_BALANCE.diplomacy.aidGoldPolFactor +
+        cha * GAME_BALANCE.diplomacy.aidGoldChaFactor +
+        randInt(GAME_BALANCE.diplomacy.aidGoldMin, GAME_BALANCE.diplomacy.aidGoldMax)
+    ),
+    food: Math.floor(
+      pol * GAME_BALANCE.diplomacy.aidFoodPolFactor +
+        cha * GAME_BALANCE.diplomacy.aidFoodChaFactor +
+        randInt(GAME_BALANCE.diplomacy.aidFoodMin, GAME_BALANCE.diplomacy.aidFoodMax)
+    ),
+    relationCost: randInt(
+      GAME_BALANCE.diplomacy.aidRelationCostMin,
+      GAME_BALANCE.diplomacy.aidRelationCostMax
+    ),
+  };
+}
+
 export function getBorderPressureMoraleLoss() {
   return randInt(
     GAME_BALANCE.diplomacy.borderPressureMoraleLossMin,
