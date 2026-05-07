@@ -26,6 +26,17 @@ const rollEventOutcome = (event) => Object.fromEntries(
   Object.entries(event.effects).map(([key, [min, max]]) => [key, randInt(min, max)]),
 );
 
+function clearCityDiplomacyOpenings(nextCities) {
+  Object.entries(nextCities).forEach(([cityId, city]) => {
+    if (city.diplomacyOpening) {
+      nextCities[cityId] = {
+        ...city,
+        diplomacyOpening: null,
+      };
+    }
+  });
+}
+
 function getEventTargetType(event) {
   if (event.target) {
     return event.target;
@@ -59,6 +70,7 @@ function applyDiplomacyEvent({ event, faction, playerCities, nextCities, cityUpd
   const targetCity = pickEventCity({ event, faction, playerCities, nextCities });
   const outcome = rollEventOutcome(event);
   const nextCity = targetCity ? { ...(cityUpdates[targetCity.id] ?? nextCities[targetCity.id] ?? targetCity) } : null;
+  const targetType = getEventTargetType(event);
 
   Object.entries(outcome).forEach(([key, value]) => {
     if (RESOURCE_KEYS.has(key)) {
@@ -78,6 +90,22 @@ function applyDiplomacyEvent({ event, faction, playerCities, nextCities, cityUpd
       };
     }
   });
+
+  if (nextCity && targetType === 'enemyCityPressure') {
+    const affectedStats = Object.entries(outcome)
+      .filter(([key, value]) => CITY_KEYS.has(key) && value < 0)
+      .map(([key]) => {
+        if (key === 'troops') return '兵力受损';
+        if (key === 'defense') return '城防松动';
+        if (key === 'morale') return '军心浮动';
+        return key;
+      });
+
+    nextCity.diplomacyOpening = {
+      label: '内应已成',
+      summary: affectedStats.join('、') || '城内有变',
+    };
+  }
 
   if (nextCity && targetCity) {
     cityUpdates[targetCity.id] = nextCity;
@@ -120,6 +148,8 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
   const resourceDelta = { gold: 0, food: 0, reputation: 0 };
   const cityUpdates = {};
   const logs = [];
+
+  clearCityDiplomacyOpenings(nextCities);
 
   Object.values(factions)
     .filter(faction => faction.id !== 'player')

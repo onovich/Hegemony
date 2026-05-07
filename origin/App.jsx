@@ -1065,14 +1065,23 @@ export default function App() {
                             {enemyCities.map(city => {
                                 const faction = factions[city.owner];
                                 const isCeasefireActive = (faction.ceasefireTurns ?? 0) > 0;
+                                const diplomacyOpening = city.diplomacyOpening;
                                 return (
                                     <div key={city.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded hover:border-red-900/50 transition">
                                         <div>
                                             <div className="text-amber-100 font-bold flex items-center">
                                                 {city.name} 
                                                 <span className={`ml-2 text-xs px-1 rounded text-white ${faction.color}`}>{faction.name}</span>
+                                                {diplomacyOpening ? (
+                                                    <span className="ml-2 rounded bg-rose-900/80 px-2 py-0.5 text-[10px] font-bold tracking-wide text-rose-100">
+                                                        {diplomacyOpening.label}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                             <div className="text-xs text-slate-400 mt-1">兵力: {city.troops} | 城防: {city.defense} | 士气: {city.morale}</div>
+                                            {diplomacyOpening ? (
+                                                <div className="mt-1 text-[11px] text-rose-300">{diplomacyOpening.summary}，可趁势攻城。</div>
+                                            ) : null}
                                         </div>
                                         <button 
                                             disabled={isCeasefireActive}
