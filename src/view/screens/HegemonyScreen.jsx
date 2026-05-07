@@ -119,8 +119,7 @@ export default function HegemonyScreen() {
         <HegemonyOpeningScreen
           openingState={openingState}
           onBack={() => setScreenMode('title')}
-          onStartHome={() => handleStartScenario('HOME')}
-          onStartCouncil={() => handleStartScenario('COUNCIL')}
+          onStart={() => handleStartScenario('HOME')}
         />
       ) : (
         <HegemonyGame

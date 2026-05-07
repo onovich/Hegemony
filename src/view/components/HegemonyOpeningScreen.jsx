@@ -18,8 +18,7 @@ const OPENING_FOCUS = [
 export default function HegemonyOpeningScreen({
     openingState,
     onBack,
-    onStartHome,
-    onStartCouncil,
+    onStart,
 }) {
     const date = openingState?.date ?? { year: 190, month: 1 };
     const city = openingState?.city ?? { name: '洛阳', specialty: '帝都中枢', purposeLabel: '都城' };
@@ -68,7 +67,7 @@ export default function HegemonyOpeningScreen({
                             ))}
                         </div>
                         <div className="mt-5 rounded-2xl border border-amber-900/20 bg-black/20 p-4 text-sm leading-6 text-slate-300">
-                            第一月最稳的起手通常是先看内政和人事；如果你想尽快试战，也至少先确认粮草与驻军规模够不够支撑第一次出兵。
+                            立足之初不必贪快。先稳住城池，再扩张兵力与盟友，霸业才能有真正的根基。
                         </div>
                     </section>
 
@@ -109,40 +108,26 @@ export default function HegemonyOpeningScreen({
                     </aside>
                 </div>
 
-                <div className="hidden items-center justify-end gap-3 lg:flex">
+                <div className="hidden items-center justify-end lg:flex">
                     <button
                         type="button"
-                        onClick={onStartHome}
+                        onClick={onStart}
                         className="inline-flex items-center justify-center rounded-full border border-amber-700/50 bg-amber-900/40 px-6 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-800/50"
                     >
                         <Sword className="mr-2 h-4 w-4" />
-                        从主城开始
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onStartCouncil}
-                        className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-900 px-6 py-3 text-sm font-bold text-slate-200 transition hover:border-amber-800/40 hover:text-amber-200"
-                    >
-                        先看内政
+                        整军立旗，开始争霸
                     </button>
                 </div>
             </div>
 
             <div className="fixed inset-x-0 bottom-0 z-20 border-t border-amber-900/20 bg-slate-950/95 px-4 py-3 backdrop-blur lg:hidden" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}>
-                <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3">
+                <div className="mx-auto max-w-6xl">
                     <button
                         type="button"
-                        onClick={onStartHome}
-                        className="rounded-2xl border border-amber-700/50 bg-amber-900/40 px-4 py-3 text-sm font-bold text-amber-100"
+                        onClick={onStart}
+                        className="w-full rounded-2xl border border-amber-700/50 bg-amber-900/40 px-4 py-3 text-sm font-bold text-amber-100"
                     >
-                        从主城开始
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onStartCouncil}
-                        className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-bold text-slate-200"
-                    >
-                        先看内政
+                        整军立旗，开始争霸
                     </button>
                 </div>
             </div>
