@@ -12,6 +12,23 @@ import {
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 
+function appendRecentDiplomacyAction(faction, type, source = 'ai') {
+  const queuedActions = Array.isArray(faction.recentDiplomacyActions)
+    ? faction.recentDiplomacyActions
+    : Array.isArray(faction.recentPlayerDiplomacyActions)
+      ? faction.recentPlayerDiplomacyActions
+      : faction.recentPlayerDiplomacyAction?.type
+        ? [faction.recentPlayerDiplomacyAction]
+        : [];
+
+  return {
+    ...faction,
+    recentDiplomacyActions: [...queuedActions, { type, source }],
+    recentPlayerDiplomacyActions: [],
+    recentPlayerDiplomacyAction: null,
+  };
+}
+
 function getAiDiplomacyProfile(faction) {
   return {
     giftChanceMultiplier: 1,
@@ -93,10 +110,13 @@ export function resolveAiMonthlyDiplomacy({
           hostilityTurns: nextFactions[faction.id].hostilityTurns ?? 0,
         }))) {
           const relationBoost = getPeaceRelationBoost();
-          nextFactions[faction.id] = establishCeasefire({
-            ...nextFactions[faction.id],
-            relation: Math.min(100, relation + relationBoost),
-          });
+          nextFactions[faction.id] = appendRecentDiplomacyAction(
+            establishCeasefire({
+              ...nextFactions[faction.id],
+              relation: Math.min(100, relation + relationBoost),
+            }),
+            'aiPeaceAccepted'
+          );
           logs.push({
             text: `【${faction.name}】见战局不利，主动遣使议和，我方暂允罢兵 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月，关系回升 ${relationBoost}。`,
             type: 'system',
@@ -104,10 +124,10 @@ export function resolveAiMonthlyDiplomacy({
           return;
         }
 
-        nextFactions[faction.id] = {
+        nextFactions[faction.id] = appendRecentDiplomacyAction({
           ...nextFactions[faction.id],
           relation: Math.max(0, relation - GAME_BALANCE.diplomacy.peaceFailureRelationPenalty),
-        };
+        }, 'aiPeaceRejected');
         logs.push({
           text: `【${faction.name}】试图遣使求和，但我方未予理会，双方关系继续恶化。`,
           type: 'warning',

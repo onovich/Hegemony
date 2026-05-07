@@ -79,7 +79,7 @@ export const INITIAL_FACTIONS = {
     relation: 40,
     ceasefireTurns: 0,
     hostilityTurns: 0,
-    recentPlayerDiplomacyActions: [],
+    recentDiplomacyActions: [],
     color: 'bg-red-700',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 0.65,
@@ -128,7 +128,7 @@ export const INITIAL_FACTIONS = {
     relation: 60,
     ceasefireTurns: 0,
     hostilityTurns: 0,
-    recentPlayerDiplomacyActions: [],
+    recentDiplomacyActions: [],
     color: 'bg-green-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.4,
@@ -177,7 +177,7 @@ export const INITIAL_FACTIONS = {
     relation: 50,
     ceasefireTurns: 0,
     hostilityTurns: 0,
-    recentPlayerDiplomacyActions: [],
+    recentDiplomacyActions: [],
     color: 'bg-orange-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.05,

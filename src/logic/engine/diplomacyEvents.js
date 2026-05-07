@@ -97,8 +97,10 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
     .filter(faction => faction.id !== 'player')
     .forEach((faction) => {
       const currentFaction = factions[faction.id];
-      const followUpActions = Array.isArray(currentFaction.recentPlayerDiplomacyActions)
-        ? currentFaction.recentPlayerDiplomacyActions
+      const followUpActions = Array.isArray(currentFaction.recentDiplomacyActions)
+        ? currentFaction.recentDiplomacyActions
+        : Array.isArray(currentFaction.recentPlayerDiplomacyActions)
+          ? currentFaction.recentPlayerDiplomacyActions
         : currentFaction.recentPlayerDiplomacyAction?.type
           ? [currentFaction.recentPlayerDiplomacyAction]
           : [];
@@ -106,6 +108,7 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
       if (followUpActions.length > 0) {
         factions[faction.id] = {
           ...currentFaction,
+          recentDiplomacyActions: [],
           recentPlayerDiplomacyActions: [],
           recentPlayerDiplomacyAction: null,
         };

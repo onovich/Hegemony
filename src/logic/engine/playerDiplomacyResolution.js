@@ -14,16 +14,19 @@ import {
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 
-function appendRecentPlayerDiplomacyAction(faction, type) {
-  const queuedActions = Array.isArray(faction.recentPlayerDiplomacyActions)
-    ? faction.recentPlayerDiplomacyActions
-    : faction.recentPlayerDiplomacyAction?.type
-      ? [faction.recentPlayerDiplomacyAction]
+function appendRecentDiplomacyAction(faction, type, source = 'player') {
+  const queuedActions = Array.isArray(faction.recentDiplomacyActions)
+    ? faction.recentDiplomacyActions
+    : Array.isArray(faction.recentPlayerDiplomacyActions)
+      ? faction.recentPlayerDiplomacyActions
+      : faction.recentPlayerDiplomacyAction?.type
+        ? [faction.recentPlayerDiplomacyAction]
       : [];
 
   return {
     ...faction,
-    recentPlayerDiplomacyActions: [...queuedActions, { type }],
+    recentDiplomacyActions: [...queuedActions, { type, source }],
+    recentPlayerDiplomacyActions: [],
     recentPlayerDiplomacyAction: null,
   };
 }
@@ -158,7 +161,7 @@ export function resolvePlayerDiplomacyAction({
     result.factions = {
       ...factions,
       [factionId]: {
-        ...appendRecentPlayerDiplomacyAction(targetFaction, 'aidRequested'),
+        ...appendRecentDiplomacyAction(targetFaction, 'aidRequested'),
         relation: nextRelation,
       },
     };
@@ -215,7 +218,7 @@ export function resolvePlayerDiplomacyAction({
       const relationBoost = getPeaceRelationBoost();
       result.factions = {
         ...factions,
-        [factionId]: appendRecentPlayerDiplomacyAction(
+        [factionId]: appendRecentDiplomacyAction(
           establishCeasefire({
             ...targetFaction,
             relation: Math.min(100, targetFaction.relation + relationBoost),
@@ -230,7 +233,7 @@ export function resolvePlayerDiplomacyAction({
     } else {
       result.factions = {
         ...factions,
-        [factionId]: appendRecentPlayerDiplomacyAction(
+        [factionId]: appendRecentDiplomacyAction(
           escalateHostility({
             ...targetFaction,
             relation: Math.max(0, targetFaction.relation - GAME_BALANCE.diplomacy.peaceFailureRelationPenalty),
@@ -267,7 +270,7 @@ export function resolvePlayerDiplomacyAction({
     result.factions = {
       ...factions,
       [factionId]: brokeCeasefire
-        ? appendRecentPlayerDiplomacyAction(
+        ? appendRecentDiplomacyAction(
           escalateHostility({
             ...targetFaction,
             relation: nextRelation,
@@ -330,7 +333,7 @@ export function resolvePlayerDiplomacyAction({
     if (chance(successChance)) {
       result.factions = {
         ...result.factions,
-        [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeSucceeded'),
+        [factionId]: appendRecentDiplomacyAction(result.factions[factionId], 'persuadeSucceeded'),
       };
       result.cities = clearOfficerAssignmentsFromCities(cities, targetOfficer.id);
       result.officers = officers.map(officer => officer.id === targetOfficer.id
@@ -349,7 +352,7 @@ export function resolvePlayerDiplomacyAction({
     } else {
       result.factions = {
         ...result.factions,
-        [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeFailed'),
+        [factionId]: appendRecentDiplomacyAction(result.factions[factionId], 'persuadeFailed'),
       };
       result.logs.push({
         text: `劝降未成！【${targetOfficer.name}】暂未动摇，只是让【${targetFaction.name}】对我方更加戒备。`,
@@ -383,7 +386,7 @@ export function resolvePlayerDiplomacyAction({
         const loyaltyDrop = getAlienateLoyaltyDrop();
         result.factions = {
           ...result.factions,
-          [factionId]: appendRecentPlayerDiplomacyAction(result.factions[factionId], 'alienateSucceeded'),
+          [factionId]: appendRecentDiplomacyAction(result.factions[factionId], 'alienateSucceeded'),
         };
         result.officers = officers.map(officer => officer.id === targetOfficer.id
           ? { ...officer, loyalty: Math.max(0, officer.loyalty - loyaltyDrop) }

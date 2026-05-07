@@ -200,4 +200,44 @@ export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
       },
     },
   ],
+  aiPeaceAccepted: [
+    {
+      scope: 'city',
+      type: 'system',
+      text: '【{{faction}}】求和既成，边郡【{{city}}】得以稍歇，士气提升 {{morale}}，回收粮秣 {{food}}。',
+      effects: {
+        morale: [2, 5],
+        food: [90, 180],
+      },
+    },
+    {
+      scope: 'faction',
+      type: 'system',
+      text: '【{{faction}}】因主动罢兵而示弱，双方关系回暖 {{relation}}，但我方名望也提升 {{reputation}}。',
+      effects: {
+        relation: [1, 4],
+        reputation: [1, 2],
+      },
+    },
+  ],
+  aiPeaceRejected: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】议和受挫后转而整军经武，双方关系下降 {{relation}}，边地流言使我方名望下降 {{reputation}}。',
+      effects: {
+        relation: [-4, -2],
+        reputation: [-2, -1],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '【{{faction}}】求和未果后仍在边境陈兵，【{{city}}】被迫增设警戒，财政损失 {{gold}} 金，士气下降 {{morale}}。',
+      effects: {
+        gold: [-120, -60],
+        morale: [-4, -2],
+      },
+    },
+  ],
 };
