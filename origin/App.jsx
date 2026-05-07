@@ -118,6 +118,11 @@ export default function App() {
         const playerCities = getPlayerCities();
         return playerCities.find(city => city.id === activeCityId) ?? playerCities[0];
     };
+    const getCityOfficers = (cityId, factionId = 'player') => officers.filter(o => o.faction === factionId && o.state === 'active' && o.cityId === cityId);
+    const getCurrentCityOfficers = () => {
+        const currentCity = getPlayerCity();
+        return currentCity ? getCityOfficers(currentCity.id) : [];
+    };
     const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
     const factionRulerIds = new Set(Object.values(factions).map(faction => faction.ruler));
 
@@ -135,6 +140,20 @@ export default function App() {
     // Calculate total stats for player
     const getTotalStats = () => {
         return getEffectiveFactionStats(getPlayerOfficers());
+    };
+
+    const getCurrentCityStats = () => {
+        return getEffectiveFactionStats(getCurrentCityOfficers());
+    };
+
+    const ensureCurrentCityOfficer = (actionLabel) => {
+        const currentCityOfficers = getCurrentCityOfficers();
+        if (currentCityOfficers.length > 0) {
+            return true;
+        }
+
+        addLog(`【${getPlayerCity().name}】暂无驻守武将，无法执行${actionLabel}。请先在人事中调度武将。`, 'error');
+        return false;
     };
 
     const getLoyaltyStageLabel = (loyalty) => {
@@ -371,8 +390,12 @@ export default function App() {
     // 2. Exploration (民间探访)
     const exploreLocation = (location) => {
         if (!costAp(1)) return;
+        if (!ensureCurrentCityOfficer('探访')) {
+            setAp(prev => prev + 1);
+            return;
+        }
 
-        const pOfficers = getPlayerOfficers();
+        const pOfficers = getCurrentCityOfficers();
         const bonus = getExplorationBonus(pOfficers);
 
         if (location === 'tavern') {
@@ -435,7 +458,11 @@ export default function App() {
     // 3. Domestic (内政)
     const developCity = (type) => {
         if (!costAp(1)) return;
-        const stats = getTotalStats();
+        if (!ensureCurrentCityOfficer('内政')) {
+            setAp(prev => prev + 1);
+            return;
+        }
+        const stats = getCurrentCityStats();
         const myCity = getPlayerCity();
         
         let increase = 0;
@@ -465,7 +492,10 @@ export default function App() {
     // 4. Military (军事)
     const militaryAction = (action, targetCityId = null) => {
         const myCity = getPlayerCity();
-        const stats = getTotalStats();
+        if ((action === 'draft' || action === 'train' || action === 'attack') && !ensureCurrentCityOfficer(action === 'attack' ? '出兵' : '军务')) {
+            return;
+        }
+        const stats = getCurrentCityStats();
 
         if (action === 'draft') {
             const costGold = GAME_BALANCE.military.draftGoldCost;
@@ -502,7 +532,7 @@ export default function App() {
             setResources(prev => ({ ...prev, food: prev.food - costFood }));
             const targetCity = cities[targetCityId];
             const targetFaction = targetCity.owner;
-            const enemyOfficers = officers.filter(o => o.faction === targetFaction);
+            const enemyOfficers = getCityOfficers(targetCityId, targetFaction);
             const enemyStats = getEffectiveFactionStats(enemyOfficers);
             const currentRelation = factions[targetFaction].relation ?? 0;
 
@@ -553,12 +583,12 @@ export default function App() {
                     // Capture officers
                     let capturedNames = [];
                     setOfficers(prev => prev.map(o => {
-                        if (o.faction === targetFaction && chance(50)) {
+                        if (o.faction === targetFaction && o.cityId === targetCityId && chance(50)) {
                             capturedNames.push(o.name);
-                            return { ...o, faction: 'player', loyalty: 40 }; // Captured and forced to join, low loyalty
+                            return { ...o, faction: 'player', cityId: targetCityId, state: 'active', loyalty: 40 };
                         }
                         // Rest flee and become free
-                        if (o.faction === targetFaction) return { ...o, faction: 'free', state: 'discovered' };
+                        if (o.faction === targetFaction && o.cityId === targetCityId) return { ...o, faction: 'free', cityId: null, state: 'discovered' };
                         return o;
                     }));
 
@@ -608,7 +638,7 @@ export default function App() {
             });
             
             if (chance(chanceToHire)) {
-                setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, faction: 'player', state: 'active', loyalty: 70 } : o));
+                setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, faction: 'player', cityId: activeCityId, state: 'active', loyalty: 70 } : o));
                 addLog(`登庸成功！【${officer.name}】被主公的魅力折服，加入了您的麾下！`, 'success');
             } else {
                 addLog(`登庸失败！【${officer.name}】婉拒了您的招募。`);
@@ -625,6 +655,12 @@ export default function App() {
             const boost = calculateRewardBoost();
             setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, loyalty: Math.min(100, o.loyalty + boost) } : o));
             addLog(`赏赐了【${officer.name}】百金，其忠诚度提升了 ${boost}！`);
+        }
+        else if (action === 'dispatch') {
+            const destinationCity = cities[activeCityId];
+            const currentCityName = cities[officer.cityId]?.name ?? '未知地点';
+            setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, cityId: activeCityId } : o));
+            addLog(`调度【${officer.name}】离开【${currentCityName}】，前往【${destinationCity.name}】驻守。`, 'system');
         }
     };
 
@@ -823,7 +859,9 @@ export default function App() {
         const myCity = getPlayerCity();
         const playerCities = getPlayerCities();
         const myOfficers = getPlayerOfficers();
+        const currentCityOfficers = getCurrentCityOfficers();
         const totalStats = getTotalStats();
+        const currentCityStats = getCurrentCityStats();
         const totalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
         const totalAgriculture = playerCities.reduce((sum, city) => sum + city.agriculture, 0);
         const totalCommerce = playerCities.reduce((sum, city) => sum + city.commerce, 0);
@@ -841,12 +879,23 @@ export default function App() {
                         <div><span className="text-slate-500">商业：</span>{myCity.commerce}</div>
                         <div><span className="text-slate-500">城防：</span>{myCity.defense}</div>
                         <div><span className="text-slate-500">士气：</span>{myCity.morale} / 100</div>
+                        <div><span className="text-slate-500">驻守武将：</span>{currentCityOfficers.length}</div>
+                        <div><span className="text-slate-500">当前城有效统率：</span>{currentCityStats.cmd}</div>
                     </div>
                     {playerCities.length > 1 && (
                         <div className="mt-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                             已占领 {playerCities.length} 座城池，内政、征兵、训练与出兵都以当前选中城池执行。
                         </div>
                     )}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {currentCityOfficers.length === 0 ? (
+                            <span className="text-xs text-red-400">当前城暂无驻守武将</span>
+                        ) : currentCityOfficers.map(o => (
+                            <span key={o.id} className="px-2 py-1 bg-slate-700 text-xs rounded border border-slate-600 text-amber-100">
+                                {o.name}
+                            </span>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
@@ -956,6 +1005,8 @@ export default function App() {
 
     const renderArmy = () => {
         const myCity = getPlayerCity();
+        const currentCityOfficers = getCurrentCityOfficers();
+        const currentCityStats = getCurrentCityStats();
         const enemyCities = Object.values(cities).filter(c => c.owner !== 'player');
 
         return (
@@ -967,6 +1018,9 @@ export default function App() {
                             <Flag className="w-6 h-6 mr-2"/> 军备筹建
                         </h2>
                         <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，城市定位为【{getCityRoleLabel(myCity)}】。</p>
+                        <div className="mb-4 rounded bg-black/20 p-3 text-xs text-slate-300">
+                            驻守武将：{currentCityOfficers.length} 人 | 当前城有效统率：{currentCityStats.cmd} | 当前城有效魅力：{currentCityStats.cha}
+                        </div>
                         <div className="flex flex-col space-y-4 mt-4">
                             <div className="flex justify-between items-center bg-black/20 p-3 rounded">
                                 <div>
@@ -1114,6 +1168,7 @@ export default function App() {
                         <Coins className="w-6 h-6 mr-2"/> 赏赐部下
                     </h2>
                     <p className="text-xs text-slate-400 mb-4">忠诚会影响武将实际贡献。60 以下开始明显降效，40 以下可能侵吞军资，30 以下有概率直接叛逃。</p>
+                    <p className="text-xs text-slate-500 mb-4">当前操作城为【{cities[activeCityId]?.name}】，可将武将调往此地驻守。</p>
                     {myOfficers.length === 0 ? (
                         <p className="text-slate-500 text-sm py-4 text-center">麾下暂无其他武将。</p>
                     ) : (
@@ -1130,14 +1185,26 @@ export default function App() {
                                         <div className="mt-1 text-xs text-slate-400">
                                             状态：{getLoyaltyStageLabel(o.loyalty)} | 当前贡献效率：{Math.round(getOfficerContributionMultiplier(o.loyalty) * 100)}%
                                         </div>
+                                        <div className="mt-1 text-xs text-slate-500">
+                                            驻守：{cities[o.cityId]?.name ?? '未配置'}
+                                        </div>
                                     </div>
-                                    <button 
-                                        onClick={() => personnelAction('reward', o.id)}
-                                        disabled={o.loyalty >= 100}
-                                        className={`px-3 py-1 rounded text-sm font-bold transition ${o.loyalty >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-yellow-700 hover:bg-yellow-600 text-white'}`}
-                                    >
-                                        赏赐 (1政令)
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => personnelAction('dispatch', o.id)}
+                                            disabled={o.cityId === activeCityId}
+                                            className={`px-3 py-1 rounded text-sm font-bold transition ${o.cityId === activeCityId ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                                        >
+                                            调往当前城
+                                        </button>
+                                        <button 
+                                            onClick={() => personnelAction('reward', o.id)}
+                                            disabled={o.loyalty >= 100}
+                                            className={`px-3 py-1 rounded text-sm font-bold transition ${o.loyalty >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-yellow-700 hover:bg-yellow-600 text-white'}`}
+                                        >
+                                            赏赐 (1政令)
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

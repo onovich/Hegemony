@@ -62,18 +62,18 @@ export const INITIAL_FACTIONS = {
 };
 
 export const INITIAL_OFFICERS = [
-  { id: 'player_ruler', name: '主公(您)', faction: 'player', cmd: 85, int: 85, pol: 85, cha: 90, loyalty: 100, state: 'active' },
-  { id: 'caocao', name: '曹操', faction: 'caocao', cmd: 98, int: 91, pol: 94, cha: 96, loyalty: 100, state: 'active' },
-  { id: 'xiahoudun', name: '夏侯惇', faction: 'caocao', cmd: 89, int: 58, pol: 70, cha: 81, loyalty: 100, state: 'active' },
-  { id: 'liubei', name: '刘备', faction: 'liubei', cmd: 75, int: 73, pol: 78, cha: 99, loyalty: 100, state: 'active' },
-  { id: 'guanyu', name: '关羽', faction: 'liubei', cmd: 95, int: 75, pol: 62, cha: 93, loyalty: 100, state: 'active' },
-  { id: 'sunquan', name: '孙权', faction: 'sunquan', cmd: 76, int: 80, pol: 89, cha: 95, loyalty: 100, state: 'active' },
-  { id: 'zhouyu', name: '周瑜', faction: 'sunquan', cmd: 97, int: 96, pol: 86, cha: 93, loyalty: 100, state: 'active' },
-  { id: 'zhaoyun', name: '赵云', faction: 'free', cmd: 96, int: 76, pol: 65, cha: 91, loyalty: 50, state: 'hidden' },
-  { id: 'zhugeliang', name: '诸葛亮', faction: 'free', cmd: 90, int: 100, pol: 95, cha: 90, loyalty: 50, state: 'hidden' },
-  { id: 'diaochan', name: '貂蝉', faction: 'free', cmd: 20, int: 81, pol: 65, cha: 100, loyalty: 50, state: 'hidden' },
-  { id: 'guojia', name: '郭嘉', faction: 'free', cmd: 50, int: 98, pol: 84, cha: 78, loyalty: 50, state: 'hidden' },
-  { id: 'lvbu', name: '吕布', faction: 'free', cmd: 100, int: 26, pol: 13, cha: 40, loyalty: 30, state: 'hidden' },
+  { id: 'player_ruler', name: '主公(您)', faction: 'player', cityId: 'luoyang', cmd: 85, int: 85, pol: 85, cha: 90, loyalty: 100, state: 'active' },
+  { id: 'caocao', name: '曹操', faction: 'caocao', cityId: 'xuchang', cmd: 98, int: 91, pol: 94, cha: 96, loyalty: 100, state: 'active' },
+  { id: 'xiahoudun', name: '夏侯惇', faction: 'caocao', cityId: 'xuchang', cmd: 89, int: 58, pol: 70, cha: 81, loyalty: 100, state: 'active' },
+  { id: 'liubei', name: '刘备', faction: 'liubei', cityId: 'chengdu', cmd: 75, int: 73, pol: 78, cha: 99, loyalty: 100, state: 'active' },
+  { id: 'guanyu', name: '关羽', faction: 'liubei', cityId: 'chengdu', cmd: 95, int: 75, pol: 62, cha: 93, loyalty: 100, state: 'active' },
+  { id: 'sunquan', name: '孙权', faction: 'sunquan', cityId: 'jianye', cmd: 76, int: 80, pol: 89, cha: 95, loyalty: 100, state: 'active' },
+  { id: 'zhouyu', name: '周瑜', faction: 'sunquan', cityId: 'jianye', cmd: 97, int: 96, pol: 86, cha: 93, loyalty: 100, state: 'active' },
+  { id: 'zhaoyun', name: '赵云', faction: 'free', cityId: null, cmd: 96, int: 76, pol: 65, cha: 91, loyalty: 50, state: 'hidden' },
+  { id: 'zhugeliang', name: '诸葛亮', faction: 'free', cityId: null, cmd: 90, int: 100, pol: 95, cha: 90, loyalty: 50, state: 'hidden' },
+  { id: 'diaochan', name: '貂蝉', faction: 'free', cityId: null, cmd: 20, int: 81, pol: 65, cha: 100, loyalty: 50, state: 'hidden' },
+  { id: 'guojia', name: '郭嘉', faction: 'free', cityId: null, cmd: 50, int: 98, pol: 84, cha: 78, loyalty: 50, state: 'hidden' },
+  { id: 'lvbu', name: '吕布', faction: 'free', cityId: null, cmd: 100, int: 26, pol: 13, cha: 40, loyalty: 30, state: 'hidden' },
 ];
 
 export const ARTIFACTS = [
