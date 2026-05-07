@@ -341,6 +341,17 @@ export const GAME_BALANCE = {
     attackMinTroops: 4000,
     attackMinMorale: 60,
     attackPowerAdvantageRatio: 1.05,
+    diplomacy: {
+      giftChance: 26,
+      giftMinRelation: 38,
+      giftBoostFactor: 0.7,
+      giftMinBoost: 4,
+      pressureChance: 34,
+      pressureTroopRatio: 1.08,
+      pressureRelationDropMin: 6,
+      pressureRelationDropMax: 14,
+      alienateChance: 28,
+    },
     roleGrowthBonus: {
       capital: { troops: 20, agriculture: 1, commerce: 1, defense: 1, morale: 1 },
       agriculture: { troops: 0, agriculture: 3, commerce: 0, defense: 0, morale: 0 },

@@ -295,6 +295,7 @@ export default function App() {
             ...prev,
             ...turnResult.resources,
         }));
+        setFactions(turnResult.factions);
 
         turnResult.logs.forEach(log => addLog(log.text, log.type));
 

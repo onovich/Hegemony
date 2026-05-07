@@ -1,6 +1,7 @@
 import { advanceFactionEconomy } from './gameBalance.js';
 import { resolvePlayerMonthlyTurn } from './playerTurnResolution.js';
 import { resolveAiFactionCityManagement } from './aiCityManagement.js';
+import { resolveAiMonthlyDiplomacy } from './aiDiplomacyResolution.js';
 import { resolveAiMonthlyBattles } from './aiBattleResolution.js';
 
 export function resolveMonthlyTurnFlow({
@@ -16,6 +17,9 @@ export function resolveMonthlyTurnFlow({
 }) {
   const myCities = getFactionCitiesFromState('player');
   const myOfficers = getFactionOfficersFromState('player');
+  const nextFactions = Object.fromEntries(
+    Object.entries(factions).map(([factionId, faction]) => [factionId, { ...faction }])
+  );
   const economy = advanceFactionEconomy({
     cities: myCities,
     officerCount: myOfficers.length,
@@ -25,7 +29,7 @@ export function resolveMonthlyTurnFlow({
     nextCities,
     nextOfficers,
     resources,
-    factions,
+    factions: nextFactions,
     factionRulerIds,
     economy,
     getFactionCitiesFromState,
@@ -40,7 +44,7 @@ export function resolveMonthlyTurnFlow({
   aiFactionIds.forEach(factionId => {
     const aiManagement = resolveAiFactionCityManagement({
       factionId,
-      factionName: factions[factionId].name,
+      factionName: nextFactions[factionId].name,
       cities: getFactionCitiesFromState(factionId),
       officers: nextOfficers,
     });
@@ -52,10 +56,19 @@ export function resolveMonthlyTurnFlow({
     logs.push(...aiManagement.logs);
   });
 
+  const aiDiplomacyResult = resolveAiMonthlyDiplomacy({
+    nextFactions,
+    nextOfficers,
+    getFactionCitiesFromState,
+    getFactionOfficersFromState,
+  });
+
+  logs.push(...aiDiplomacyResult.logs);
+
   const aiBattleResult = resolveAiMonthlyBattles({
     nextCities,
     nextOfficers,
-    factions,
+    factions: nextFactions,
     getFactionCitiesFromState,
     getCityProfileFromState,
   });
@@ -73,6 +86,7 @@ export function resolveMonthlyTurnFlow({
 
     return {
       resources: playerTurnResult.resources,
+      factions: nextFactions,
       logs,
       gameResult: 'defeat',
     };
@@ -86,6 +100,7 @@ export function resolveMonthlyTurnFlow({
 
     return {
       resources: playerTurnResult.resources,
+      factions: nextFactions,
       logs,
       gameResult: 'victory',
     };
@@ -93,6 +108,7 @@ export function resolveMonthlyTurnFlow({
 
   return {
     resources: playerTurnResult.resources,
+    factions: nextFactions,
     logs,
     gameResult: null,
   };
