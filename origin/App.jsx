@@ -33,6 +33,9 @@ import {
     getAlienateSuccessChance,
     getCapturedCityTroops,
     getCityRoleLabel,
+    getDiplomacyStateLabel,
+    getTradeIncomeBonus,
+    getBorderPressureMoraleLoss,
     getEffectiveFactionStats,
     getExplorationBonus,
     getGiftRelationBoost,
@@ -166,6 +169,7 @@ export default function App() {
         const myOfficers = getPlayerOfficers();
         const economy = advanceFactionEconomy({ cities: myCities, officerCount: myOfficers.length });
         const citySummary = myCities.map(city => `${city.name}[${getCityRoleLabel(city)}](农${city.agriculture}/商${city.commerce}/兵${city.troops})`).join('，');
+        const otherFactions = Object.values(factions).filter(faction => faction.id !== 'player');
         
         // Income & Expenses
         let newGold = resources.gold + economy.goldIncome - economy.officerSalary;
@@ -204,6 +208,31 @@ export default function App() {
         const desertingOfficerIds = new Set();
         const moraleLossByCity = {};
         let stolenGold = 0;
+        let tradeGold = 0;
+        let tradeFood = 0;
+
+        otherFactions.forEach(faction => {
+            if (faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+                const tradeBonus = getTradeIncomeBonus();
+                tradeGold += tradeBonus.gold;
+                tradeFood += tradeBonus.food;
+                loyaltyEventLogs.push({
+                    text: `与【${faction.name}】的通商往来带来了 ${tradeBonus.gold} 金与 ${tradeBonus.food} 粮。`,
+                    type: 'success',
+                });
+                return;
+            }
+
+            if (faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold && myCities.length > 0) {
+                const targetCity = myCities[randInt(0, myCities.length - 1)];
+                const moraleLoss = getBorderPressureMoraleLoss();
+                moraleLossByCity[targetCity.id] = (moraleLossByCity[targetCity.id] ?? 0) + moraleLoss;
+                loyaltyEventLogs.push({
+                    text: `【${faction.name}】在边境施压，导致【${targetCity.name}】士气下降 ${moraleLoss}。`,
+                    type: 'warning',
+                });
+            }
+        });
 
         officers.forEach(officer => {
             if (officer.state !== 'active' || factionRulerIds.has(officer.id)) {
@@ -256,8 +285,8 @@ export default function App() {
 
         setResources(prev => ({
             ...prev,
-            gold: Math.max(0, newGold - stolenGold),
-            food: newFood,
+            gold: Math.max(0, newGold - stolenGold + tradeGold),
+            food: newFood + tradeFood,
         }));
 
         if (desertingOfficerIds.size > 0) {
@@ -475,6 +504,23 @@ export default function App() {
             const targetFaction = targetCity.owner;
             const enemyOfficers = officers.filter(o => o.faction === targetFaction);
             const enemyStats = getEffectiveFactionStats(enemyOfficers);
+            const currentRelation = factions[targetFaction].relation ?? 0;
+
+            setFactions(prev => ({
+                ...prev,
+                [targetFaction]: {
+                    ...prev[targetFaction],
+                    relation: Math.max(0, prev[targetFaction].relation - GAME_BALANCE.diplomacy.attackRelationDrop),
+                },
+            }));
+
+            if (currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+                setResources(prev => ({
+                    ...prev,
+                    reputation: Math.max(0, prev.reputation - GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty),
+                }));
+                addLog(`你对友好势力【${factions[targetFaction].name}】开战，名望下降了 ${GAME_BALANCE.diplomacy.friendlyAttackReputationPenalty}。`, 'warning');
+            }
 
             addLog(`🔥 您对【${targetCity.name}】(${factions[targetFaction].name}) 发动了战争！`, 'warning');
 
@@ -597,8 +643,12 @@ export default function App() {
             }
             setResources(prev => ({ ...prev, gold: prev.gold - cost }));
             const relationBoost = getGiftRelationBoost(stats.pol);
-            setFactions(prev => ({ ...prev, [factionId]: { ...prev[factionId], relation: Math.min(100, prev[factionId].relation + relationBoost) } }));
+            const nextRelation = Math.min(100, targetFaction.relation + relationBoost);
+            setFactions(prev => ({ ...prev, [factionId]: { ...prev[factionId], relation: nextRelation } }));
             addLog(`派遣使者向【${targetFaction.name}】献上厚礼，双方友好度提升了 ${relationBoost}。`);
+            if (targetFaction.relation < GAME_BALANCE.diplomacy.tradeThreshold && nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+                addLog(`【${targetFaction.name}】已进入通商友邦状态，下月起可获得稳定贸易收益。`, 'success');
+            }
         }
         else if (action === 'alienate') {
             const cost = GAME_BALANCE.diplomacy.alienateGoldCost;
@@ -1112,11 +1162,21 @@ export default function App() {
                             </div>
                             
                             <div className="mb-6 flex-grow">
+                                <div className="mb-3 rounded border border-slate-700 bg-black/20 px-3 py-2 text-xs text-slate-300">
+                                    关系状态：{getDiplomacyStateLabel(faction.relation)}
+                                </div>
                                 <div className="text-sm text-slate-400 mb-1">双方友好度</div>
                                 <div className="w-full bg-slate-900 rounded-full h-2.5 mb-2 border border-slate-700">
                                     <div className={`h-2.5 rounded-full ${faction.relation > 70 ? 'bg-green-500' : faction.relation > 30 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${faction.relation}%` }}></div>
                                 </div>
                                 <div className="text-right text-xs text-slate-500">{faction.relation} / 100</div>
+                                <div className="mt-2 text-xs text-slate-400">
+                                    {faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold
+                                        ? '每月可获得通商收益。'
+                                        : faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold
+                                            ? '每月可能触发边境施压，压低我方城池士气。'
+                                            : '当前暂无额外外交结算效果。'}
+                                </div>
                             </div>
 
                             <div className="space-y-2">

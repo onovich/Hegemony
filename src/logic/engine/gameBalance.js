@@ -240,6 +240,32 @@ export function getGiftRelationBoost(pol) {
   );
 }
 
+export function getDiplomacyStateLabel(relation) {
+  if (relation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+    return '通商友邦';
+  }
+
+  if (relation <= GAME_BALANCE.diplomacy.hostileThreshold) {
+    return '边境紧张';
+  }
+
+  return '观望中立';
+}
+
+export function getTradeIncomeBonus() {
+  return {
+    gold: randInt(GAME_BALANCE.diplomacy.tradeGoldMin, GAME_BALANCE.diplomacy.tradeGoldMax),
+    food: randInt(GAME_BALANCE.diplomacy.tradeFoodMin, GAME_BALANCE.diplomacy.tradeFoodMax),
+  };
+}
+
+export function getBorderPressureMoraleLoss() {
+  return randInt(
+    GAME_BALANCE.diplomacy.borderPressureMoraleLossMin,
+    GAME_BALANCE.diplomacy.borderPressureMoraleLossMax
+  );
+}
+
 export function getAlienateSuccessChance(playerInt, targetInt) {
   return playerInt > targetInt
     ? GAME_BALANCE.diplomacy.alienateHighSuccessChance
