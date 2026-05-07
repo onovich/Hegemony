@@ -1329,6 +1329,14 @@ export default function App() {
                                     请求援助 (耗:1政令)
                                 </button>
                                 <button 
+                                    onClick={() => diplomacyAction('peace', faction.id)}
+                                    className="w-full bg-sky-900 hover:bg-sky-800 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                    title="在敌对升级或关系紧张时尝试议和，成功后可建立短期停战"
+                                    disabled={(faction.ceasefireTurns ?? 0) > 0}
+                                >
+                                    遣使求和 (耗:1政令, 380金)
+                                </button>
+                                <button 
                                     onClick={() => diplomacyAction('pressure', faction.id)}
                                     className="w-full bg-red-900 hover:bg-red-800 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center"
                                     title="通过边备、军书和使节施压，压低关系并推动敌对升级"

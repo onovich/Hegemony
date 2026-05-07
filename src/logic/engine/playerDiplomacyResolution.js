@@ -5,6 +5,8 @@ import {
   getAlienateLoyaltyDrop,
   getAlienateSuccessChance,
   getGiftRelationBoost,
+  getPeaceRelationBoost,
+  getPeaceRequestChance,
   getPersuadeSuccessChance,
   getPressureRelationDrop,
 } from './gameBalance.js';
@@ -50,6 +52,12 @@ function clearOfficerAssignmentsFromCities(cities, officerId) {
   );
 
   return changed ? nextCities : cities;
+}
+
+function getFactionTroops(cities, factionId) {
+  return Object.values(cities)
+    .filter(city => city.owner === factionId)
+    .reduce((total, city) => total + city.troops, 0);
 }
 
 export function resolvePlayerDiplomacyAction({
@@ -166,6 +174,72 @@ export function resolvePlayerDiplomacyAction({
     if (targetFaction.relation >= GAME_BALANCE.diplomacy.tradeThreshold && nextRelation < GAME_BALANCE.diplomacy.tradeThreshold) {
       result.logs.push({
         text: `【${targetFaction.name}】认为我方索求过繁，双方暂时退出通商友邦状态。`,
+        type: 'warning',
+      });
+    }
+
+    return result;
+  }
+
+  if (action === 'peace') {
+    const cost = GAME_BALANCE.diplomacy.peaceGoldCost;
+    if (resources.gold < cost) {
+      return rejectAction(`求和需要 ${cost} 金用于使节、馈赠与誓书，资金不足！`);
+    }
+
+    if ((targetFaction.ceasefireTurns ?? 0) > 0) {
+      return rejectAction(`与【${targetFaction.name}】当前已处于停战期，无需重复议和。`);
+    }
+
+    if ((targetFaction.hostilityTurns ?? 0) <= 0 && targetFaction.relation > GAME_BALANCE.diplomacy.hostileThreshold) {
+      return rejectAction(`与【${targetFaction.name}】尚未紧张到必须议和的程度。`);
+    }
+
+    const ownTroops = getFactionTroops(cities, 'player');
+    const targetTroops = getFactionTroops(cities, factionId);
+    const successChance = getPeaceRequestChance({
+      playerCha: stats.cha,
+      playerInt: stats.int,
+      relation: targetFaction.relation,
+      ownTroops,
+      targetTroops,
+      hostilityTurns: targetFaction.hostilityTurns ?? 0,
+    });
+
+    result.resources = {
+      ...resources,
+      gold: resources.gold - cost,
+    };
+
+    if (chance(successChance)) {
+      const relationBoost = getPeaceRelationBoost();
+      result.factions = {
+        ...factions,
+        [factionId]: appendRecentPlayerDiplomacyAction(
+          establishCeasefire({
+            ...targetFaction,
+            relation: Math.min(100, targetFaction.relation + relationBoost),
+          }),
+          'peaceAccepted'
+        ),
+      };
+      result.logs.push({
+        text: `【${targetFaction.name}】接受了我方议和请求，双方停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月，关系回升 ${relationBoost}。`,
+        type: 'success',
+      });
+    } else {
+      result.factions = {
+        ...factions,
+        [factionId]: appendRecentPlayerDiplomacyAction(
+          escalateHostility({
+            ...targetFaction,
+            relation: Math.max(0, targetFaction.relation - GAME_BALANCE.diplomacy.peaceFailureRelationPenalty),
+          }, GAME_BALANCE.diplomacy.covertHostilityTurns),
+          'peaceRejected'
+        ),
+      };
+      result.logs.push({
+        text: `【${targetFaction.name}】拒绝议和，并斥我方虚张声势，双方关系进一步恶化。`,
         type: 'warning',
       });
     }

@@ -312,6 +312,31 @@ export function getGiftRelationBoost(pol) {
   );
 }
 
+export function getPeaceRequestChance({ playerCha, playerInt, relation, ownTroops, targetTroops, hostilityTurns = 0 }) {
+  const troopRatio = targetTroops > 0 ? ownTroops / targetTroops : 1.5;
+  const troopAdvantage = Math.max(-1, Math.min(1.5, troopRatio - 1));
+
+  return Math.max(
+    5,
+    Math.floor(
+      GAME_BALANCE.diplomacy.peaceBaseChance +
+        playerCha * GAME_BALANCE.diplomacy.peaceChaFactor +
+        playerInt * GAME_BALANCE.diplomacy.peaceIntFactor +
+        relation * GAME_BALANCE.diplomacy.peaceRelationFactor +
+        troopAdvantage * GAME_BALANCE.diplomacy.peaceTroopAdvantageFactor +
+        (hostilityTurns > 0 ? GAME_BALANCE.diplomacy.peaceHostilityBonus : 0) +
+        randInt(GAME_BALANCE.diplomacy.peaceRandMin, GAME_BALANCE.diplomacy.peaceRandMax)
+    )
+  );
+}
+
+export function getPeaceRelationBoost() {
+  return randInt(
+    GAME_BALANCE.diplomacy.peaceRelationBoostMin,
+    GAME_BALANCE.diplomacy.peaceRelationBoostMax
+  );
+}
+
 export function getDiplomacyStateLabel(relation, ceasefireTurns = 0, hostilityTurns = 0) {
   if (ceasefireTurns > 0) {
     return '停战修盟';

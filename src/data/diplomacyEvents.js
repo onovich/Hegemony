@@ -60,6 +60,46 @@ export const DIPLOMACY_STATE_EVENT_POOLS = {
 };
 
 export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
+  peaceAccepted: [
+    {
+      scope: 'faction',
+      type: 'success',
+      text: '与【{{faction}}】议和既成，朝野称颂主公审时度势，名望提升 {{reputation}}，双方关系回暖 {{relation}}。',
+      effects: {
+        reputation: [1, 3],
+        relation: [2, 5],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'system',
+      text: '边境与【{{faction}}】暂息兵戈，【{{city}}】得以休养生息，士气提升 {{morale}}，粮秣回收 {{food}}。',
+      effects: {
+        morale: [3, 6],
+        food: [120, 220],
+      },
+    },
+  ],
+  peaceRejected: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】公然拒绝我方求和，诸侯皆知我方示弱，名望下降 {{reputation}}，关系下降 {{relation}}。',
+      effects: {
+        reputation: [-2, -1],
+        relation: [-4, -2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '求和遭拒后边郡【{{city}}】紧急加固守备，损失 {{gold}} 金，但士气提升 {{morale}}。',
+      effects: {
+        gold: [-140, -70],
+        morale: [1, 3],
+      },
+    },
+  ],
   aidRequested: [
     {
       scope: 'faction',
