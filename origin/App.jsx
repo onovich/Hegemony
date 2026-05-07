@@ -35,6 +35,7 @@ import {
     getCapturedCityTroops,
     getCityRoleLabel,
     getDiplomacyStateLabel,
+    getDirectedFactionStats,
     getTradeIncomeBonus,
     getBorderPressureMoraleLoss,
     getEffectiveFactionStats,
@@ -62,6 +63,7 @@ const TAB_ITEMS = [
 // --- Utility Functions ---
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
+const EMPTY_STATS = { cmd: 0, int: 0, pol: 0, cha: 0 };
 
 export default function App() {
     // --- State ---
@@ -122,9 +124,45 @@ export default function App() {
         return playerCities.find(city => city.id === activeCityId) ?? playerCities[0] ?? null;
     };
     const getCityOfficers = (cityId, factionId = 'player') => officers.filter(o => o.faction === factionId && o.state === 'active' && o.cityId === cityId);
-    const getCurrentCityOfficers = () => {
+    const getCityOperationalProfile = (cityId, factionId = 'player', cityState = cities, officerState = officers) => {
+        const city = cityState[cityId];
+        if (!city) {
+            return {
+                stationedOfficers: [],
+                governor: null,
+                commander: null,
+                economyStats: EMPTY_STATS,
+                militaryStats: EMPTY_STATS,
+            };
+        }
+
+        const stationedOfficers = officerState.filter(officer => (
+            officer.faction === factionId &&
+            officer.state === 'active' &&
+            officer.cityId === cityId
+        ));
+        const governor = stationedOfficers.find(officer => officer.id === city.governorId) ?? null;
+        const commander = stationedOfficers.find(officer => officer.id === city.commanderId) ?? null;
+
+        return {
+            stationedOfficers,
+            governor,
+            commander,
+            economyStats: getDirectedFactionStats(stationedOfficers, governor?.id ?? null),
+            militaryStats: getDirectedFactionStats(stationedOfficers, commander?.id ?? null),
+        };
+    };
+    const getCurrentCityProfile = () => {
         const currentCity = getPlayerCity();
-        return currentCity ? getCityOfficers(currentCity.id) : [];
+        return currentCity
+            ? getCityOperationalProfile(currentCity.id)
+            : {
+                stationedOfficers: [],
+                governor: null,
+                commander: null,
+                economyStats: EMPTY_STATS,
+                militaryStats: EMPTY_STATS,
+            };
     };
     const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
     const factionRulerIds = new Set(Object.values(factions).map(faction => faction.ruler));
@@ -139,18 +177,43 @@ export default function App() {
             setActiveCityId(playerCities[0].id);
         }
     }, [cities, activeCityId]);
+
+    useEffect(() => {
+        let hasChanges = false;
+        const nextCities = { ...cities };
+
+        Object.values(cities).forEach(city => {
+            const stationedIds = new Set(
+                officers
+                    .filter(officer => officer.faction === city.owner && officer.state === 'active' && officer.cityId === city.id)
+                    .map(officer => officer.id)
+            );
+
+            const governorValid = !city.governorId || stationedIds.has(city.governorId);
+            const commanderValid = !city.commanderId || stationedIds.has(city.commanderId);
+
+            if (!governorValid || !commanderValid) {
+                hasChanges = true;
+                nextCities[city.id] = {
+                    ...nextCities[city.id],
+                    governorId: governorValid ? nextCities[city.id].governorId : null,
+                    commanderId: commanderValid ? nextCities[city.id].commanderId : null,
+                };
+            }
+        });
+
+        if (hasChanges) {
+            setCities(nextCities);
+        }
+    }, [cities, officers]);
     
     // Calculate total stats for player
     const getTotalStats = () => {
         return getEffectiveFactionStats(getPlayerOfficers());
     };
 
-    const getCurrentCityStats = () => {
-        return getEffectiveFactionStats(getCurrentCityOfficers());
-    };
-
     const ensureCurrentCityOfficer = (actionLabel) => {
-        const currentCityOfficers = getCurrentCityOfficers();
+        const currentCityOfficers = getCurrentCityProfile().stationedOfficers;
         const currentCity = getPlayerCity();
         if (currentCityOfficers.length > 0) {
             return true;
@@ -201,13 +264,14 @@ export default function App() {
             officer.state === 'active' &&
             (cityId === null || officer.cityId === cityId)
         ));
+        const getCityProfileFromState = (cityId, factionId) => getCityOperationalProfile(cityId, factionId, nextCities, nextOfficers);
 
         const myCities = getFactionCitiesFromState('player');
         const myOfficers = getFactionOfficersFromState('player');
         const economy = advanceFactionEconomy({
             cities: myCities,
             officerCount: myOfficers.length,
-            getCityStats: (city) => getEffectiveFactionStats(getFactionOfficersFromState('player', city.id)),
+            getCityStats: (city) => getCityProfileFromState(city.id, 'player').economyStats,
         });
         const citySummary = myCities.map(city => `${city.name}[${getCityRoleLabel(city)}](农${city.agriculture}/商${city.commerce}/兵${city.troops})`).join('，');
         const otherFactions = Object.values(factions).filter(faction => faction.id !== 'player');
@@ -311,7 +375,7 @@ export default function App() {
             }
 
             if (shouldOfficerCauseUnrest(officer.loyalty)) {
-                const affectedCities = getPlayerCities();
+                const affectedCities = getFactionCitiesFromState('player');
                 const targetCity = affectedCities[randInt(0, affectedCities.length - 1)];
                 const moraleLoss = getUnrestMoraleLoss();
                 moraleLossByCity[targetCity.id] = (moraleLossByCity[targetCity.id] ?? 0) + moraleLoss;
@@ -374,8 +438,7 @@ export default function App() {
             }
 
             const attackerCandidates = factionCities.map(city => {
-                const cityOfficers = getFactionOfficersFromState(factionId, city.id);
-                const cityStats = getEffectiveFactionStats(cityOfficers);
+                const cityStats = getCityProfileFromState(city.id, factionId).militaryStats;
 
                 return {
                     city,
@@ -389,8 +452,7 @@ export default function App() {
             }).sort((left, right) => right.projectedPower - left.projectedPower);
 
             const defenderCandidates = playerCitiesNow.map(city => {
-                const cityOfficers = getFactionOfficersFromState('player', city.id);
-                const cityStats = getEffectiveFactionStats(cityOfficers);
+                const cityStats = getCityProfileFromState(city.id, 'player').militaryStats;
 
                 return {
                     city,
@@ -450,6 +512,8 @@ export default function App() {
                 nextCities[defenderCity.id] = {
                     ...defenderCity,
                     owner: factionId,
+                    governorId: null,
+                    commanderId: null,
                     troops: capturedTroops,
                     morale: 55,
                 };
@@ -544,7 +608,7 @@ export default function App() {
             return;
         }
 
-        const pOfficers = getCurrentCityOfficers();
+        const pOfficers = getCurrentCityProfile().stationedOfficers;
         const bonus = getExplorationBonus(pOfficers);
 
         if (location === 'tavern') {
@@ -611,7 +675,8 @@ export default function App() {
             setAp(prev => prev + 1);
             return;
         }
-        const stats = getCurrentCityStats();
+        const currentCityProfile = getCurrentCityProfile();
+        const stats = type === 'defense' ? currentCityProfile.militaryStats : currentCityProfile.economyStats;
         const myCity = getPlayerCity();
         
         let increase = 0;
@@ -644,7 +709,7 @@ export default function App() {
         if ((action === 'draft' || action === 'train' || action === 'attack') && !ensureCurrentCityOfficer(action === 'attack' ? '出兵' : '军务')) {
             return;
         }
-        const stats = getCurrentCityStats();
+        const stats = getCurrentCityProfile().militaryStats;
 
         if (action === 'draft') {
             const costGold = GAME_BALANCE.military.draftGoldCost;
@@ -726,7 +791,7 @@ export default function App() {
                     setCities(prev => ({ 
                         ...prev, 
                         [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost) },
-                        [targetCityId]: { ...prev[targetCityId], owner: 'player', troops: capturedTroops, morale: 60 }
+                        [targetCityId]: { ...prev[targetCityId], owner: 'player', governorId: null, commanderId: null, troops: capturedTroops, morale: 60 }
                     }));
                     
                     // Capture officers
@@ -810,6 +875,26 @@ export default function App() {
             const currentCityName = cities[officer.cityId]?.name ?? '未知地点';
             setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, cityId: activeCityId } : o));
             addLog(`调度【${officer.name}】离开【${currentCityName}】，前往【${destinationCity.name}】驻守。`, 'system');
+        }
+        else if (action === 'appointGovernor') {
+            setCities(prev => ({
+                ...prev,
+                [activeCityId]: {
+                    ...prev[activeCityId],
+                    governorId: officerId,
+                },
+            }));
+            addLog(`任命【${officer.name}】为【${cities[activeCityId].name}】太守。`, 'success');
+        }
+        else if (action === 'appointCommander') {
+            setCities(prev => ({
+                ...prev,
+                [activeCityId]: {
+                    ...prev[activeCityId],
+                    commanderId: officerId,
+                },
+            }));
+            addLog(`任命【${officer.name}】为【${cities[activeCityId].name}】主将。`, 'success');
         }
     };
 
@@ -1008,11 +1093,13 @@ export default function App() {
         const myCity = getPlayerCity();
         const playerCities = getPlayerCities();
         const myOfficers = getPlayerOfficers();
-        const currentCityOfficers = getCurrentCityOfficers();
+        const currentCityProfile = getCurrentCityProfile();
+        const currentCityOfficers = currentCityProfile.stationedOfficers;
         const totalStats = getTotalStats();
-        const currentCityStats = getCurrentCityStats();
+        const currentCityEconomyStats = currentCityProfile.economyStats;
+        const currentCityMilitaryStats = currentCityProfile.militaryStats;
         const currentCityEconomy = myCity
-            ? advanceTurnEconomy({ city: myCity, officerCount: 0, cityStats: currentCityStats })
+            ? advanceTurnEconomy({ city: myCity, officerCount: 0, cityStats: currentCityEconomyStats })
             : null;
         const totalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
         const totalAgriculture = playerCities.reduce((sum, city) => sum + city.agriculture, 0);
@@ -1025,14 +1112,16 @@ export default function App() {
                         <Tent className="w-6 h-6 mr-2"/> 当前城池情报：{myCity.name}
                     </h2>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
-                        <div><span className="text-slate-500">太守：</span>{officers.find(o=>o.id==='player_ruler')?.name}</div>
+                        <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
                         <div><span className="text-slate-500">驻军：</span>{myCity.troops}</div>
                         <div><span className="text-slate-500">农业：</span>{myCity.agriculture}</div>
                         <div><span className="text-slate-500">商业：</span>{myCity.commerce}</div>
                         <div><span className="text-slate-500">城防：</span>{myCity.defense}</div>
                         <div><span className="text-slate-500">士气：</span>{myCity.morale} / 100</div>
                         <div><span className="text-slate-500">驻守武将：</span>{currentCityOfficers.length}</div>
-                        <div><span className="text-slate-500">当前城有效统率：</span>{currentCityStats.cmd}</div>
+                        <div><span className="text-slate-500">主将：</span>{currentCityProfile.commander?.name ?? '未任命'}</div>
+                        <div><span className="text-slate-500">政务统筹：</span>政 {currentCityEconomyStats.pol} / 魅 {currentCityEconomyStats.cha}</div>
+                        <div><span className="text-slate-500">军务统筹：</span>统 {currentCityMilitaryStats.cmd} / 魅 {currentCityMilitaryStats.cha}</div>
                         <div><span className="text-slate-500">预计月资金：</span>{currentCityEconomy?.goldIncome ?? 0}</div>
                         <div><span className="text-slate-500">预计月粮草：</span>{currentCityEconomy?.foodIncome ?? 0}</div>
                     </div>
@@ -1042,7 +1131,7 @@ export default function App() {
                         </div>
                     )}
                     <div className="mt-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
-                        驻守武将的政治与魅力会提高本城月度经营收益，因此调度文官到关键城市能直接改善财政与粮储。
+                        太守主导本城政务收益，主将主导本城军务表现。任命合适人选，能让每座城的定位更明确。
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                         {currentCityOfficers.length === 0 ? (
@@ -1102,9 +1191,9 @@ export default function App() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {playerCities.map(city => (
                             (() => {
-                                const stationedOfficers = getCityOfficers(city.id);
-                                const stationedStats = getEffectiveFactionStats(stationedOfficers);
-                                const projectedEconomy = advanceTurnEconomy({ city, officerCount: 0, cityStats: stationedStats });
+                                const cityProfile = getCityOperationalProfile(city.id);
+                                const stationedOfficers = cityProfile.stationedOfficers;
+                                const projectedEconomy = advanceTurnEconomy({ city, officerCount: 0, cityStats: cityProfile.economyStats });
 
                                 return (
                             <button
@@ -1118,6 +1207,7 @@ export default function App() {
                                     <span className="text-xs text-slate-400">{city.id === myCity.id ? '当前操作城' : '点击切换'}</span>
                                 </div>
                                 <div className="mt-2 text-xs text-amber-300">定位：{getCityRoleLabel(city)}</div>
+                                <div className="mt-1 text-xs text-slate-400">太守：{cityProfile.governor?.name ?? '未任命'} | 主将：{cityProfile.commander?.name ?? '未任命'}</div>
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
                                     <div>兵力：{city.troops}</div>
                                     <div>士气：{city.morale}</div>
@@ -1142,6 +1232,7 @@ export default function App() {
     const renderCouncil = () => (
         <div className="p-6 max-w-2xl mx-auto">
             <h2 className="text-2xl font-bold text-amber-500 mb-6 text-center">主持内政</h2>
+            <p className="mb-6 text-center text-xs text-slate-400">当前城由【{getCurrentCityProfile().governor?.name ?? '未任命'}】主持政务，太守会优先影响本城经营收益与开发效果。</p>
             <div className="grid grid-cols-1 gap-6">
                 <div className="bg-slate-800/80 p-6 rounded-lg border border-amber-900/30 text-center hover:bg-slate-800 transition">
                     <Wheat className="w-12 h-12 text-green-500 mx-auto mb-3"/>
@@ -1173,8 +1264,9 @@ export default function App() {
 
     const renderArmy = () => {
         const myCity = getPlayerCity();
-        const currentCityOfficers = getCurrentCityOfficers();
-        const currentCityStats = getCurrentCityStats();
+        const currentCityProfile = getCurrentCityProfile();
+        const currentCityOfficers = currentCityProfile.stationedOfficers;
+        const currentCityStats = currentCityProfile.militaryStats;
         const enemyCities = Object.values(cities).filter(c => c.owner !== 'player');
 
         return (
@@ -1185,7 +1277,7 @@ export default function App() {
                         <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                             <Flag className="w-6 h-6 mr-2"/> 军备筹建
                         </h2>
-                        <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，城市定位为【{getCityRoleLabel(myCity)}】。</p>
+                        <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，主将为【{currentCityProfile.commander?.name ?? '未任命'}】，城市定位为【{getCityRoleLabel(myCity)}】。</p>
                         <div className="mb-4 rounded bg-black/20 p-3 text-xs text-slate-300">
                             驻守武将：{currentCityOfficers.length} 人 | 当前城有效统率：{currentCityStats.cmd} | 当前城有效魅力：{currentCityStats.cha}
                         </div>
@@ -1302,6 +1394,8 @@ export default function App() {
     const renderPersonnel = () => {
         const myOfficers = getPlayerOfficers().filter(o => o.id !== 'player_ruler');
         const discoveredOfficers = officers.filter(o => o.state === 'discovered' && o.faction === 'free');
+        const currentCityProfile = getCurrentCityProfile();
+        const stationedOfficers = currentCityProfile.stationedOfficers.filter(o => o.id !== 'player_ruler');
 
         return (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1332,6 +1426,41 @@ export default function App() {
                 </div>
 
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
+                    <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
+                        <Tent className="w-6 h-6 mr-2"/> 当前城任命
+                    </h2>
+                    <p className="text-xs text-slate-400 mb-4">当前操作城为【{cities[activeCityId]?.name}】。太守优先影响经营收益，主将优先影响军务表现。</p>
+                    {stationedOfficers.length === 0 ? (
+                        <p className="text-slate-500 text-sm py-4 text-center">当前城暂无可任命的驻守武将。</p>
+                    ) : (
+                        <div className="space-y-3 mb-6">
+                            {stationedOfficers.map(o => (
+                                <div key={o.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded">
+                                    <div>
+                                        <div className="text-amber-100 font-bold">{o.name}</div>
+                                        <div className="mt-1 text-xs text-slate-400">政:{o.pol} 魅:{o.cha} 统:{o.cmd}</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => personnelAction('appointGovernor', o.id)}
+                                            disabled={currentCityProfile.governor?.id === o.id}
+                                            className={`px-3 py-1 rounded text-sm font-bold transition ${currentCityProfile.governor?.id === o.id ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-amber-800 hover:bg-amber-700 text-white'}`}
+                                        >
+                                            任太守
+                                        </button>
+                                        <button 
+                                            onClick={() => personnelAction('appointCommander', o.id)}
+                                            disabled={currentCityProfile.commander?.id === o.id}
+                                            className={`px-3 py-1 rounded text-sm font-bold transition ${currentCityProfile.commander?.id === o.id ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-red-800 hover:bg-red-700 text-white'}`}
+                                        >
+                                            任主将
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                         <Coins className="w-6 h-6 mr-2"/> 赏赐部下
                     </h2>

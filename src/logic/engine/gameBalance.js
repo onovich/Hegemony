@@ -17,12 +17,17 @@ function getCityRoleConfig(city) {
   };
 }
 
-function getEffectiveStat(officers, stat) {
+function getEffectiveStat(officers, stat, leadOfficerId = null) {
   if (!officers.length) {
     return 0;
   }
 
-  const sorted = [...officers].sort((left, right) => right[stat] - left[stat]);
+  const explicitLead = leadOfficerId
+    ? officers.find(officer => officer.id === leadOfficerId)
+    : null;
+  const sorted = explicitLead
+    ? [explicitLead, ...officers.filter(officer => officer.id !== explicitLead.id)]
+    : [...officers].sort((left, right) => right[stat] - left[stat]);
   const leadOfficer = sorted[0];
   const lead = Math.floor((leadOfficer?.[stat] ?? 0) * getOfficerContributionMultiplier(leadOfficer?.loyalty ?? 100));
   const support = sorted.slice(1).reduce(
@@ -86,6 +91,15 @@ export function getEffectiveFactionStats(officers) {
     int: getEffectiveStat(officers, 'int'),
     pol: getEffectiveStat(officers, 'pol'),
     cha: getEffectiveStat(officers, 'cha'),
+  };
+}
+
+export function getDirectedFactionStats(officers, leadOfficerId = null) {
+  return {
+    cmd: getEffectiveStat(officers, 'cmd', leadOfficerId),
+    int: getEffectiveStat(officers, 'int', leadOfficerId),
+    pol: getEffectiveStat(officers, 'pol', leadOfficerId),
+    cha: getEffectiveStat(officers, 'cha', leadOfficerId),
   };
 }
 
