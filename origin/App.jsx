@@ -38,6 +38,7 @@ import {
     getExplorationBonus,
     getGiftRelationBoost,
     getOfficerContributionMultiplier,
+    getPersuadeSuccessChance,
     getPressureRelationDrop,
 } from '../src/logic/engine/gameBalance.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
@@ -757,6 +758,65 @@ export default function App() {
                 addLog(`你主动撕毁了与【${targetFaction.name}】的停战约定，名望下降 ${GAME_BALANCE.diplomacy.ceasefireBreakReputationPenalty}。`, 'error');
             }
         }
+        else if (action === 'persuade') {
+            const cost = GAME_BALANCE.diplomacy.persuadeGoldCost;
+            if (resources.gold < cost) {
+                addLog(`劝降需要 ${cost} 金用于密使、馈赠与安置，资金不足！`, 'error');
+                setAp(prev => prev + 1);
+                return;
+            }
+
+            const targetOfficer = [...officers]
+                .filter(o => o.faction === factionId && o.state === 'active' && o.id !== targetFaction.ruler)
+                .sort((left, right) => (left.loyalty - right.loyalty) || (left.int - right.int))[0];
+
+            if (!targetOfficer) {
+                addLog(`密探回报：【${targetFaction.name}】当前没有可被单独策反的现役将领。`, 'error');
+                setAp(prev => prev + 1);
+                return;
+            }
+
+            setResources(prev => ({ ...prev, gold: prev.gold - cost }));
+            setFactions(prev => ({
+                ...prev,
+                [factionId]: escalateHostility(prev[factionId], GAME_BALANCE.diplomacy.covertHostilityTurns),
+            }));
+
+            const successChance = getPersuadeSuccessChance({
+                playerCha: stats.cha,
+                playerInt: stats.int,
+                targetInt: targetOfficer.int,
+                targetLoyalty: targetOfficer.loyalty,
+                hostilityBonus: (targetFaction.hostilityTurns ?? 0) > 0 || targetFaction.relation <= GAME_BALANCE.diplomacy.hostileThreshold
+                    ? GAME_BALANCE.diplomacy.persuadeHostilityBonus
+                    : 0,
+            });
+
+            if (chance(successChance)) {
+                setCities(prev => Object.fromEntries(
+                    Object.entries(prev).map(([cityId, city]) => ([
+                        cityId,
+                        {
+                            ...city,
+                            governorId: city.governorId === targetOfficer.id ? null : city.governorId,
+                            commanderId: city.commanderId === targetOfficer.id ? null : city.commanderId,
+                        },
+                    ]))
+                ));
+                setOfficers(prev => prev.map(o => o.id === targetOfficer.id
+                    ? {
+                        ...o,
+                        faction: 'player',
+                        cityId: activeCityId,
+                        state: 'active',
+                        loyalty: GAME_BALANCE.diplomacy.persuadeJoinLoyalty,
+                    }
+                    : o));
+                addLog(`密使成功说动【${targetFaction.name}】武将【${targetOfficer.name}】倒戈来投，现已前往【${cities[activeCityId].name}】听命。`, 'success');
+            } else {
+                addLog(`劝降未成！【${targetOfficer.name}】暂未动摇，只是让【${targetFaction.name}】对我方更加戒备。`, 'warning');
+            }
+        }
         else if (action === 'alienate') {
             const cost = GAME_BALANCE.diplomacy.alienateGoldCost;
             if (resources.gold < cost) {
@@ -1443,6 +1503,13 @@ export default function App() {
                                     title="通过边备、军书和使节施压，压低关系并推动敌对升级"
                                 >
                                     施压恫吓 (耗:1政令, 250金)
+                                </button>
+                                <button 
+                                    onClick={() => diplomacyAction('persuade', faction.id)}
+                                    className="w-full bg-violet-900 hover:bg-violet-800 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center"
+                                    title="优先劝降该势力忠诚最低的现役武将；在敌对或低关系时更容易奏效"
+                                >
+                                    密使劝降 (耗:1政令, 450金)
                                 </button>
                                 <button 
                                     onClick={() => diplomacyAction('alienate', faction.id)}

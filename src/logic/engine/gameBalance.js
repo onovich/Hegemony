@@ -358,6 +358,21 @@ export function getAidPackage(pol, cha) {
   };
 }
 
+export function getPersuadeSuccessChance({ playerCha, playerInt, targetInt, targetLoyalty, hostilityBonus = 0 }) {
+  return Math.max(
+    5,
+    Math.floor(
+      GAME_BALANCE.diplomacy.persuadeBaseChance +
+        playerCha * GAME_BALANCE.diplomacy.persuadeChaFactor +
+        playerInt * GAME_BALANCE.diplomacy.persuadeIntFactor -
+        targetInt * GAME_BALANCE.diplomacy.persuadeTargetIntFactor -
+        targetLoyalty * GAME_BALANCE.diplomacy.persuadeTargetLoyaltyFactor +
+        hostilityBonus +
+        randInt(GAME_BALANCE.diplomacy.persuadeRandMin, GAME_BALANCE.diplomacy.persuadeRandMax)
+    )
+  );
+}
+
 export function getBorderPressureMoraleLoss() {
   return randInt(
     GAME_BALANCE.diplomacy.borderPressureMoraleLossMin,
