@@ -12,6 +12,13 @@ import {
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 
+function setRecentPlayerDiplomacyAction(faction, type) {
+  return {
+    ...faction,
+    recentPlayerDiplomacyAction: { type },
+  };
+}
+
 function clearOfficerAssignmentsFromCities(cities, officerId) {
   let changed = false;
 
@@ -136,7 +143,7 @@ export function resolvePlayerDiplomacyAction({
     result.factions = {
       ...factions,
       [factionId]: {
-        ...targetFaction,
+        ...setRecentPlayerDiplomacyAction(targetFaction, 'aidRequested'),
         relation: nextRelation,
       },
     };
@@ -178,10 +185,18 @@ export function resolvePlayerDiplomacyAction({
     };
     result.factions = {
       ...factions,
-      [factionId]: escalateHostility({
-        ...targetFaction,
-        relation: nextRelation,
-      }),
+      [factionId]: brokeCeasefire
+        ? setRecentPlayerDiplomacyAction(
+          escalateHostility({
+            ...targetFaction,
+            relation: nextRelation,
+          }),
+          'ceasefireBroken'
+        )
+        : escalateHostility({
+          ...targetFaction,
+          relation: nextRelation,
+        }),
     };
     result.logs.push({
       text: `你向【${targetFaction.name}】发出严词军书并整备边军，双方关系下降了 ${relationDrop}。`,
@@ -247,6 +262,10 @@ export function resolvePlayerDiplomacyAction({
         type: 'success',
       });
     } else {
+      result.factions = {
+        ...result.factions,
+        [factionId]: setRecentPlayerDiplomacyAction(result.factions[factionId], 'persuadeFailed'),
+      };
       result.logs.push({
         text: `劝降未成！【${targetOfficer.name}】暂未动摇，只是让【${targetFaction.name}】对我方更加戒备。`,
         type: 'warning',

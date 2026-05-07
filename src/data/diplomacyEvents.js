@@ -58,3 +58,66 @@ export const DIPLOMACY_STATE_EVENT_POOLS = {
     },
   ],
 };
+
+export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
+  aidRequested: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】的使者提醒我方此前求援颇多，朝野对此多有微词，名望下降 {{reputation}}，关系下降 {{relation}}。',
+      effects: {
+        reputation: [-2, -1],
+        relation: [-5, -2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'system',
+      text: '为回报【{{faction}}】此前的接济，朝廷调拨 {{food}} 粮维系商路，致【{{city}}】仓储承压，但双方关系回暖 {{relation}}。',
+      effects: {
+        food: [-220, -120],
+        relation: [1, 3],
+      },
+    },
+  ],
+  persuadeFailed: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】查出我方密使行迹后大肆宣扬，令我方名望下降 {{reputation}}，双方关系下降 {{relation}}。',
+      effects: {
+        reputation: [-2, -1],
+        relation: [-6, -3],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '受【{{faction}}】清查反制影响，【{{city}}】商旅受阻，财政损失 {{gold}} 金，士气下降 {{morale}}。',
+      effects: {
+        gold: [-130, -70],
+        morale: [-4, -2],
+      },
+    },
+  ],
+  ceasefireBroken: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '我方背弃与【{{faction}}】的停战之约，引得诸侯侧目，名望下降 {{reputation}}，关系再降 {{relation}}。',
+      effects: {
+        reputation: [-3, -1],
+        relation: [-5, -2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '因朝廷突然撕毁与【{{faction}}】的停战，边郡【{{city}}】仓促整军备战，损失 {{gold}} 金，士气下降 {{morale}}。',
+      effects: {
+        gold: [-140, -80],
+        morale: [-5, -2],
+      },
+    },
+  ],
+};
