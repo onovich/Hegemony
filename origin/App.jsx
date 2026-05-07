@@ -37,6 +37,7 @@ import {
     getExplorationBonus,
     getGiftRelationBoost,
     getOfficerContributionMultiplier,
+    getPressureRelationDrop,
 } from '../src/logic/engine/gameBalance.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 import {
@@ -686,6 +687,38 @@ export default function App() {
                 addLog(`【${targetFaction.name}】已进入通商友邦状态，并约定停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'success');
             } else if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold && previousCeasefireTurns < GAME_BALANCE.diplomacy.ceasefireTurns) {
                 addLog(`与【${targetFaction.name}】的停战约定刷新为 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'system');
+            }
+        }
+        else if (action === 'pressure') {
+            const cost = GAME_BALANCE.diplomacy.pressureGoldCost;
+            if (resources.gold < cost) {
+                addLog(`施压需要 ${cost} 金用于军使、边备与调度，资金不足！`, 'error');
+                setAp(prev => prev + 1);
+                return;
+            }
+
+            const relationDrop = getPressureRelationDrop(stats.cmd, stats.cha);
+            const nextRelation = Math.max(0, targetFaction.relation - relationDrop);
+            const brokeCeasefire = (targetFaction.ceasefireTurns ?? 0) > 0;
+
+            setResources(prev => ({
+                ...prev,
+                gold: prev.gold - cost,
+                reputation: brokeCeasefire
+                    ? Math.max(0, prev.reputation - GAME_BALANCE.diplomacy.ceasefireBreakReputationPenalty)
+                    : prev.reputation,
+            }));
+            setFactions(prev => ({
+                ...prev,
+                [factionId]: escalateHostility({
+                    ...prev[factionId],
+                    relation: nextRelation,
+                }),
+            }));
+
+            addLog(`你向【${targetFaction.name}】发出严词军书并整备边军，双方关系下降了 ${relationDrop}。`, 'warning');
+            if (brokeCeasefire) {
+                addLog(`你主动撕毁了与【${targetFaction.name}】的停战约定，名望下降 ${GAME_BALANCE.diplomacy.ceasefireBreakReputationPenalty}。`, 'error');
             }
         }
         else if (action === 'alienate') {
@@ -1359,6 +1392,13 @@ export default function App() {
                                     className="w-full bg-amber-800 hover:bg-amber-700 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center"
                                 >
                                     献礼结交 (耗:1政令, 500金)
+                                </button>
+                                <button 
+                                    onClick={() => diplomacyAction('pressure', faction.id)}
+                                    className="w-full bg-red-900 hover:bg-red-800 text-white py-2 rounded text-sm font-bold transition flex justify-center items-center"
+                                    title="通过边备、军书和使节施压，压低关系并推动敌对升级"
+                                >
+                                    施压恫吓 (耗:1政令, 250金)
                                 </button>
                                 <button 
                                     onClick={() => diplomacyAction('alienate', faction.id)}

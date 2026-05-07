@@ -353,6 +353,14 @@ export function getHostilityPressureBonus() {
   );
 }
 
+export function getPressureRelationDrop(cmd, cha) {
+  return Math.floor(
+    cmd * GAME_BALANCE.diplomacy.pressureCmdFactor +
+      cha * GAME_BALANCE.diplomacy.pressureChaFactor +
+      randInt(GAME_BALANCE.diplomacy.pressureMin, GAME_BALANCE.diplomacy.pressureMax)
+  );
+}
+
 export function getAlienateSuccessChance(playerInt, targetInt) {
   return playerInt > targetInt
     ? GAME_BALANCE.diplomacy.alienateHighSuccessChance
