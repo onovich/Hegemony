@@ -1,6 +1,7 @@
 import { advanceFactionEconomy } from './gameBalance.js';
 import { resolvePlayerMonthlyTurn } from './playerTurnResolution.js';
 import { resolveAiStagePlans } from './aiStagePlanning.js';
+import { resolveAiStageEvents } from './aiStageEvents.js';
 import { resolveAiFactionCityManagement } from './aiCityManagement.js';
 import { resolveAiMonthlyDiplomacy } from './aiDiplomacyResolution.js';
 import { resolveAiMonthlyBattles } from './aiBattleResolution.js';
@@ -46,6 +47,15 @@ export function resolveMonthlyTurnFlow({
   const aiPlans = aiStagePlanResult.plans;
 
   logs.push(...aiStagePlanResult.logs);
+
+  const aiStageEventResult = resolveAiStageEvents({
+    nextCities,
+    nextFactions,
+    aiPlans,
+    getFactionCitiesFromState,
+  });
+
+  logs.push(...aiStageEventResult.logs);
 
   const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
 

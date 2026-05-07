@@ -497,6 +497,15 @@ export const GAME_BALANCE = {
       highRelation: 65,
       lowMorale: 68,
     },
+    stageEvents: {
+      baseChance: 32,
+      maxChance: 58,
+      goalChanceBonus: {
+        military: 8,
+        development: 6,
+        diplomacy: 10,
+      },
+    },
     stageGoals: {
       military: {
         label: '扩军攻势',
