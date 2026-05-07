@@ -4,6 +4,46 @@ import {
     Map, Scroll, Calendar, Home, Coffee, ShoppingBag, 
     Tent, Flag, ArrowRight, MessageSquareWarning, Crown
 } from 'lucide-react';
+import {
+    ARTIFACTS,
+    GAME_BALANCE,
+    INITIAL_CITIES,
+    INITIAL_DATE,
+    INITIAL_FACTIONS,
+    INITIAL_OFFICERS,
+    INITIAL_RESOURCES,
+    MAX_AP,
+} from '../src/data/gameConfig.js';
+import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
+import {
+    advanceTurnEconomy,
+    advanceFactionEconomy,
+    calculateAttackFoodCost,
+    calculateBattlePower,
+    calculateDefeatLosses,
+    calculateDevelopmentGain,
+    calculateDraftRecruits,
+    calculateRecruitChance,
+    calculateRewardBoost,
+    calculateTrainingBoost,
+    calculateVictoryLosses,
+    getEmbezzleGoldLoss,
+    getAiGrowth,
+    getAlienateLoyaltyDrop,
+    getAlienateSuccessChance,
+    getCapturedCityTroops,
+    getCityRoleLabel,
+    getEffectiveFactionStats,
+    getExplorationBonus,
+    getGiftRelationBoost,
+    getLoyaltyPenaltyForBankruptcy,
+    getMoralePenaltyForStarvation,
+    getOfficerContributionMultiplier,
+    getUnrestMoraleLoss,
+    shouldOfficerCauseUnrest,
+    shouldOfficerDesert,
+    shouldOfficerEmbezzle,
+} from '../src/logic/engine/gameBalance.js';
 
 const TAB_ITEMS = [
     { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
@@ -14,53 +54,6 @@ const TAB_ITEMS = [
     { id: 'DIPLOMACY', icon: Map, label: '外交', shortcut: '6' },
 ];
 
-// --- Initial Data ---
-const INITIAL_DATE = { year: 190, month: 1 };
-const MAX_AP = 5; // Action points per month
-
-const INITIAL_CITIES = {
-    'luoyang': { id: 'luoyang', name: '洛阳', owner: 'player', agriculture: 150, commerce: 150, defense: 100, troops: 5000, morale: 70 },
-    'xuchang': { id: 'xuchang', name: '许昌', owner: 'caocao', agriculture: 200, commerce: 180, defense: 150, troops: 8000, morale: 80 },
-    'chengdu': { id: 'chengdu', name: '成都', owner: 'liubei', agriculture: 180, commerce: 120, defense: 120, troops: 6000, morale: 85 },
-    'jianye': { id: 'jianye', name: '建业', owner: 'sunquan', agriculture: 160, commerce: 190, defense: 140, troops: 7000, morale: 75 },
-};
-
-const INITIAL_FACTIONS = {
-    'player': { id: 'player', name: '您的势力', ruler: 'player_ruler', color: 'bg-blue-600' },
-    'caocao': { id: 'caocao', name: '曹操军', ruler: 'caocao', relation: 40, color: 'bg-red-700' },
-    'liubei': { id: 'liubei', name: '刘备军', ruler: 'liubei', relation: 60, color: 'bg-green-600' },
-    'sunquan': { id: 'sunquan', name: '孙权军', ruler: 'sunquan', relation: 50, color: 'bg-orange-600' },
-};
-
-const INITIAL_OFFICERS = [
-    // 玩家初始
-    { id: 'player_ruler', name: '主公(您)', faction: 'player', cmd: 85, int: 85, pol: 85, cha: 90, loyalty: 100, state: 'active' },
-    // 曹操势力
-    { id: 'caocao', name: '曹操', faction: 'caocao', cmd: 98, int: 91, pol: 94, cha: 96, loyalty: 100, state: 'active' },
-    { id: 'xiahoudun', name: '夏侯惇', faction: 'caocao', cmd: 89, int: 58, pol: 70, cha: 81, loyalty: 100, state: 'active' },
-    // 刘备势力
-    { id: 'liubei', name: '刘备', faction: 'liubei', cmd: 75, int: 73, pol: 78, cha: 99, loyalty: 100, state: 'active' },
-    { id: 'guanyu', name: '关羽', faction: 'liubei', cmd: 95, int: 75, pol: 62, cha: 93, loyalty: 100, state: 'active' },
-    // 孙权势力
-    { id: 'sunquan', name: '孙权', faction: 'sunquan', cmd: 76, int: 80, pol: 89, cha: 95, loyalty: 100, state: 'active' },
-    { id: 'zhouyu', name: '周瑜', faction: 'sunquan', cmd: 97, int: 96, pol: 86, cha: 93, loyalty: 100, state: 'active' },
-    // 在野武将 (需要探访发现)
-    { id: 'zhaoyun', name: '赵云', faction: 'free', cmd: 96, int: 76, pol: 65, cha: 91, loyalty: 50, state: 'hidden' },
-    { id: 'zhugeliang', name: '诸葛亮', faction: 'free', cmd: 90, int: 100, pol: 95, cha: 90, loyalty: 50, state: 'hidden' },
-    { id: 'diaochan', name: '貂蝉', faction: 'free', cmd: 20, int: 81, pol: 65, cha: 100, loyalty: 50, state: 'hidden' },
-    { id: 'guojia', name: '郭嘉', faction: 'free', cmd: 50, int: 98, pol: 84, cha: 78, loyalty: 50, state: 'hidden' },
-    { id: 'lvbu', name: '吕布', faction: 'free', cmd: 100, int: 26, pol: 13, cha: 40, loyalty: 30, state: 'hidden' },
-];
-
-const ARTIFACTS = [
-    { name: '雌雄双股剑', stat: 'cmd', val: 3, desc: '提升统帅' },
-    { name: '青龙偃月刀', stat: 'cmd', val: 5, desc: '大幅提升统帅' },
-    { name: '太平要术', stat: 'int', val: 5, desc: '大幅提升智力' },
-    { name: '遁甲天书', stat: 'int', val: 4, desc: '提升智力' },
-    { name: '玉玺', stat: 'cha', val: 10, desc: '天命所归，极大提升魅力' },
-    { name: '赤兔马', stat: 'cmd', val: 4, desc: '神速，提升统帅' }
-];
-
 // --- Utility Functions ---
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
@@ -69,13 +62,14 @@ export default function App() {
     // --- State ---
     const [date, setDate] = useState(INITIAL_DATE);
     const [ap, setAp] = useState(MAX_AP);
-    const [resources, setResources] = useState({ gold: 2000, food: 10000, reputation: 50 });
+    const [resources, setResources] = useState(INITIAL_RESOURCES);
     const [cities, setCities] = useState(INITIAL_CITIES);
     const [factions, setFactions] = useState(INITIAL_FACTIONS);
     const [officers, setOfficers] = useState(INITIAL_OFFICERS);
     const [inventory, setInventory] = useState([]);
     const [logs, setLogs] = useState([{ id: 0, text: '公元190年，群雄割据，您占据洛阳，开启了争霸之路。', type: 'system' }]);
     const [activeTab, setActiveTab] = useState('HOME');
+    const [activeCityId, setActiveCityId] = useState('luoyang');
     const [isDesktop, setIsDesktop] = useState(false);
     const logsEndRef = useRef(null);
 
@@ -116,63 +110,178 @@ export default function App() {
     };
 
     const getPlayerOfficers = () => officers.filter(o => o.faction === 'player');
-    const getPlayerCity = () => Object.values(cities).find(c => c.owner === 'player');
+    const getPlayerCities = () => Object.values(cities).filter(c => c.owner === 'player');
+    const getPlayerCity = () => {
+        const playerCities = getPlayerCities();
+        return playerCities.find(city => city.id === activeCityId) ?? playerCities[0];
+    };
     const activeTabLabel = TAB_ITEMS.find(item => item.id === activeTab)?.label ?? '主城';
+    const factionRulerIds = new Set(Object.values(factions).map(faction => faction.ruler));
+
+    useEffect(() => {
+        const playerCities = Object.values(cities).filter(city => city.owner === 'player');
+        if (playerCities.length === 0) {
+            return;
+        }
+
+        if (!playerCities.some(city => city.id === activeCityId)) {
+            setActiveCityId(playerCities[0].id);
+        }
+    }, [cities, activeCityId]);
     
     // Calculate total stats for player
     const getTotalStats = () => {
-        const pOfficers = getPlayerOfficers();
-        return pOfficers.reduce((acc, o) => ({
-            cmd: acc.cmd + o.cmd, int: acc.int + o.int, pol: acc.pol + o.pol, cha: acc.cha + o.cha
-        }), { cmd: 0, int: 0, pol: 0, cha: 0 });
+        return getEffectiveFactionStats(getPlayerOfficers());
+    };
+
+    const getLoyaltyStageLabel = (loyalty) => {
+        if (loyalty >= GAME_BALANCE.loyalty.stableThreshold) {
+            return '安定';
+        }
+
+        if (loyalty >= GAME_BALANCE.loyalty.warningThreshold) {
+            return '可用';
+        }
+
+        if (loyalty > GAME_BALANCE.loyalty.embezzleThreshold) {
+            return '不稳';
+        }
+
+        if (loyalty > GAME_BALANCE.loyalty.desertionThreshold) {
+            return '离心';
+        }
+
+        return '叛离边缘';
     };
 
     // --- Core Actions ---
 
     // 1. Next Month (Turn processing)
     const nextMonth = () => {
-        // Time progression
-        let newMonth = date.month + 1;
-        let newYear = date.year;
-        if (newMonth > 12) {
-            newMonth = 1;
-            newYear++;
-        }
-        setDate({ year: newYear, month: newMonth });
+        const nextDate = advanceMonth(date);
+        setDate(nextDate);
         setAp(MAX_AP); // Reset AP
 
-        const myCity = getPlayerCity();
+        const myCities = getPlayerCities();
         const myOfficers = getPlayerOfficers();
+        const economy = advanceFactionEconomy({ cities: myCities, officerCount: myOfficers.length });
+        const citySummary = myCities.map(city => `${city.name}[${getCityRoleLabel(city)}](农${city.agriculture}/商${city.commerce}/兵${city.troops})`).join('，');
         
         // Income & Expenses
-        const goldIncome = Math.floor(myCity.commerce * 2.5);
-        const foodIncome = Math.floor(myCity.agriculture * 5); // Harvest usually in autumn, but simplified here
-        const troopUpkeep = Math.floor(myCity.troops * 0.5);
-        const officerSalary = myOfficers.length * 20;
+        let newGold = resources.gold + economy.goldIncome - economy.officerSalary;
+        let newFood = resources.food + economy.foodIncome - economy.troopUpkeep;
 
-        let newGold = resources.gold + goldIncome - officerSalary;
-        let newFood = resources.food + foodIncome - troopUpkeep;
-
-        addLog(`【次月结算】获得资金 ${goldIncome}，粮草 ${foodIncome}。`);
+        addLog(`【次月结算】获得资金 ${economy.goldIncome}，粮草 ${economy.foodIncome}；俸禄支出 ${economy.officerSalary}，军粮消耗 ${economy.troopUpkeep}。`);
+        addLog(`【治下城池】${citySummary}。`, 'system');
         
         // Penalties if bankrupt
-        let moraleDrop = 0;
         if (newGold < 0) {
             addLog('警告：国库空虚，武将忠诚度下降！', 'error');
             newGold = 0;
-            setOfficers(prev => prev.map(o => o.faction === 'player' && o.id !== 'player_ruler' ? { ...o, loyalty: Math.max(0, o.loyalty - randInt(2, 5)) } : o));
+            const loyaltyLoss = getLoyaltyPenaltyForBankruptcy();
+            setOfficers(prev => prev.map(o => o.faction === 'player' && o.id !== 'player_ruler' ? { ...o, loyalty: Math.max(0, o.loyalty - loyaltyLoss) } : o));
         }
         if (newFood < 0) {
             addLog('警告：粮草断绝，士兵哗变，士气下降！', 'error');
             newFood = 0;
-            moraleDrop = randInt(5, 10);
-            setCities(prev => ({
-                ...prev,
-                [myCity.id]: { ...prev[myCity.id], troops: Math.floor(prev[myCity.id].troops * 0.8), morale: Math.max(0, prev[myCity.id].morale - moraleDrop) }
-            }));
+            const moraleDrop = getMoralePenaltyForStarvation();
+            setCities(prev => {
+                const nextCities = { ...prev };
+
+                myCities.forEach(city => {
+                    nextCities[city.id] = {
+                        ...nextCities[city.id],
+                        troops: Math.floor(nextCities[city.id].troops * (1 - GAME_BALANCE.economy.starvationTroopLossRate)),
+                        morale: Math.max(0, nextCities[city.id].morale - moraleDrop),
+                    };
+                });
+
+                return nextCities;
+            });
         }
 
-        setResources(prev => ({ ...prev, gold: newGold, food: newFood }));
+        const loyaltyEventLogs = [];
+        const desertingOfficerIds = new Set();
+        const moraleLossByCity = {};
+        let stolenGold = 0;
+
+        officers.forEach(officer => {
+            if (officer.state !== 'active' || factionRulerIds.has(officer.id)) {
+                return;
+            }
+
+            if (shouldOfficerDesert(officer.loyalty)) {
+                desertingOfficerIds.add(officer.id);
+
+                if (officer.faction === 'player') {
+                    loyaltyEventLogs.push({
+                        text: `【${officer.name}】忠诚崩溃，弃官而去，重新流落民间！`,
+                        type: 'error',
+                    });
+                } else {
+                    loyaltyEventLogs.push({
+                        text: `敌方武将【${officer.name}】忠诚崩溃，脱离了【${factions[officer.faction].name}】。`,
+                        type: 'success',
+                    });
+                }
+
+                return;
+            }
+
+            if (officer.faction !== 'player') {
+                return;
+            }
+
+            if (shouldOfficerEmbezzle(officer.loyalty)) {
+                const goldLoss = getEmbezzleGoldLoss();
+                stolenGold += goldLoss;
+                loyaltyEventLogs.push({
+                    text: `【${officer.name}】中饱私囊，侵吞了 ${goldLoss} 金。`,
+                    type: 'warning',
+                });
+                return;
+            }
+
+            if (shouldOfficerCauseUnrest(officer.loyalty)) {
+                const affectedCities = getPlayerCities();
+                const targetCity = affectedCities[randInt(0, affectedCities.length - 1)];
+                const moraleLoss = getUnrestMoraleLoss();
+                moraleLossByCity[targetCity.id] = (moraleLossByCity[targetCity.id] ?? 0) + moraleLoss;
+                loyaltyEventLogs.push({
+                    text: `【${officer.name}】消极怠政，导致【${targetCity.name}】士气下降 ${moraleLoss}。`,
+                    type: 'warning',
+                });
+            }
+        });
+
+        setResources(prev => ({
+            ...prev,
+            gold: Math.max(0, newGold - stolenGold),
+            food: newFood,
+        }));
+
+        if (desertingOfficerIds.size > 0) {
+            setOfficers(prev => prev.map(officer => desertingOfficerIds.has(officer.id)
+                ? { ...officer, faction: 'free', state: 'discovered', loyalty: 40 }
+                : officer));
+        }
+
+        if (Object.keys(moraleLossByCity).length > 0) {
+            setCities(prev => {
+                const nextCities = { ...prev };
+
+                Object.entries(moraleLossByCity).forEach(([cityId, moraleLoss]) => {
+                    nextCities[cityId] = {
+                        ...nextCities[cityId],
+                        morale: Math.max(0, nextCities[cityId].morale - moraleLoss),
+                    };
+                });
+
+                return nextCities;
+            });
+        }
+
+        loyaltyEventLogs.forEach(log => addLog(log.text, log.type));
 
         // AI Actions (Simplified)
         setCities(prev => {
@@ -180,10 +289,10 @@ export default function App() {
             Object.keys(nextCities).forEach(key => {
                 const c = nextCities[key];
                 if (c.owner !== 'player') {
-                    // AI grows slowly
-                    c.troops += randInt(100, 500);
-                    c.agriculture += randInt(1, 5);
-                    c.commerce += randInt(1, 5);
+                    const growth = getAiGrowth();
+                    c.troops += growth.troops;
+                    c.agriculture += growth.agriculture;
+                    c.commerce += growth.commerce;
                 }
             });
             return nextCities;
@@ -235,13 +344,11 @@ export default function App() {
         if (!costAp(1)) return;
 
         const pOfficers = getPlayerOfficers();
-        // Use highest charm for better results
-        const maxCha = Math.max(...pOfficers.map(o => o.cha)); 
-        const bonus = Math.floor(maxCha / 20);
+        const bonus = getExplorationBonus(pOfficers);
 
         if (location === 'tavern') {
             // 酒馆: 寻访武将 或 听闻情报
-            if (chance(30 + bonus)) {
+            if (chance(GAME_BALANCE.exploration.tavernDiscoverChance + bonus)) {
                 // Find hidden officer
                 const hidden = officers.filter(o => o.state === 'hidden');
                 if (hidden.length > 0) {
@@ -251,7 +358,7 @@ export default function App() {
                 } else {
                     addLog('你在酒馆喝了一杯，听了些市井传言，一无所获。');
                 }
-            } else if (chance(40)) {
+            } else if (chance(GAME_BALANCE.exploration.tavernRumorChance)) {
                 // Gossip affects relations
                 const targetFactions = Object.keys(factions).filter(k => k !== 'player');
                 const target = targetFactions[randInt(0, targetFactions.length - 1)];
@@ -262,7 +369,7 @@ export default function App() {
         } 
         else if (location === 'market') {
             // 市场: 获得金钱、道具或交易
-            if (chance(15 + bonus)) {
+            if (chance(GAME_BALANCE.exploration.marketArtifactChance + bonus)) {
                 // Find item
                 const item = ARTIFACTS[randInt(0, ARTIFACTS.length - 1)];
                 if (!inventory.some(i => i.name === item.name)) {
@@ -271,24 +378,24 @@ export default function App() {
                     // Auto apply buff to ruler
                     setOfficers(prev => prev.map(o => o.id === 'player_ruler' ? { ...o, [item.stat]: o[item.stat] + item.val } : o));
                 } else {
-                    const goldFound = randInt(100, 300);
+                    const goldFound = randInt(GAME_BALANCE.exploration.marketDuplicateGoldMin, GAME_BALANCE.exploration.marketDuplicateGoldMax);
                     setResources(prev => ({ ...prev, gold: prev.gold + goldFound }));
                     addLog(`你在市集巡视，收缴了违规商贩的罚款 ${goldFound} 金。`);
                 }
             } else {
-                const goldFound = randInt(50, 200);
+                const goldFound = randInt(GAME_BALANCE.exploration.marketRegularGoldMin, GAME_BALANCE.exploration.marketRegularGoldMax);
                 setResources(prev => ({ ...prev, gold: prev.gold + goldFound }));
                 addLog(`你在市集协助管理，获得了 ${goldFound} 金的税收分成。`);
             }
         }
         else if (location === 'street') {
             // 街道: 民心、粮食
-            if (chance(40)) {
-                const foodFound = randInt(500, 1500);
+            if (chance(GAME_BALANCE.exploration.streetFoodChance)) {
+                const foodFound = randInt(GAME_BALANCE.exploration.streetFoodMin, GAME_BALANCE.exploration.streetFoodMax);
                 setResources(prev => ({ ...prev, food: prev.food + foodFound }));
                 addLog(`当地富商感念你的恩德，捐赠了 ${foodFound} 粮草。`, 'success');
-            } else if (chance(40)) {
-                setResources(prev => ({ ...prev, reputation: Math.min(100, prev.reputation + randInt(2, 5)) }));
+            } else if (chance(GAME_BALANCE.exploration.streetReputationChance)) {
+                setResources(prev => ({ ...prev, reputation: Math.min(100, prev.reputation + randInt(GAME_BALANCE.exploration.streetReputationMin, GAME_BALANCE.exploration.streetReputationMax)) }));
                 addLog('你巡视街道，体恤民情，获得了百姓的爱戴（民心上升）。', 'success');
             } else {
                 addLog('街道上平静祥和，无事发生。');
@@ -303,7 +410,7 @@ export default function App() {
         const myCity = getPlayerCity();
         
         let increase = 0;
-        let cost = 100;
+        const cost = GAME_BALANCE.development.goldCost;
 
         if (resources.gold < cost) {
             addLog('金钱不足，无法进行内政开发！(需100金)', 'error');
@@ -312,17 +419,15 @@ export default function App() {
         }
 
         setResources(prev => ({ ...prev, gold: prev.gold - cost }));
+        increase = calculateDevelopmentGain(type, stats);
 
         if (type === 'agriculture') {
-            increase = Math.floor(stats.pol * 0.15 + randInt(1, 5));
             setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], agriculture: prev[myCity.id].agriculture + increase } }));
             addLog(`指派文官开垦农田，农业值提升了 ${increase}！`);
         } else if (type === 'commerce') {
-            increase = Math.floor(stats.pol * 0.15 + randInt(1, 5));
             setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], commerce: prev[myCity.id].commerce + increase } }));
             addLog(`指派文官发展商贸，商业值提升了 ${increase}！`);
         } else if (type === 'defense') {
-            increase = Math.floor(stats.cmd * 0.15 + randInt(1, 5));
             setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], defense: prev[myCity.id].defense + increase } }));
             addLog(`指派武将修筑城防，防御值提升了 ${increase}！`);
         }
@@ -334,56 +439,69 @@ export default function App() {
         const stats = getTotalStats();
 
         if (action === 'draft') {
-            const costGold = 200;
-            const costFood = 500;
+            const costGold = GAME_BALANCE.military.draftGoldCost;
+            const costFood = GAME_BALANCE.military.draftFoodCost;
             if (resources.gold < costGold || resources.food < costFood) {
                 addLog(`征兵需要 ${costGold}金 和 ${costFood}粮草，资源不足！`, 'error');
                 return;
             }
             if (!costAp(1)) return;
             
-            const recruits = Math.floor(stats.cha * 10 + resources.reputation * 5 + randInt(100, 500));
+            const recruits = calculateDraftRecruits({
+                city: myCity,
+                effectiveCha: stats.cha,
+                reputation: resources.reputation,
+            });
             setResources(prev => ({ ...prev, gold: prev.gold - costGold, food: prev.food - costFood }));
-            setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], troops: prev[myCity.id].troops + recruits, morale: Math.max(10, prev[myCity.id].morale - 5) } }));
+            setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], troops: prev[myCity.id].troops + recruits, morale: Math.max(10, prev[myCity.id].morale - GAME_BALANCE.military.draftMoralePenalty) } }));
             addLog(`发布募兵令，消耗金粮，招募了 ${recruits} 名新兵。（士气略微下降）`);
         } 
         else if (action === 'train') {
             if (!costAp(1)) return;
-            const moraleBoost = Math.floor(stats.cmd * 0.1 + randInt(2, 8));
+            const moraleBoost = calculateTrainingBoost(stats.cmd);
             setCities(prev => ({ ...prev, [myCity.id]: { ...prev[myCity.id], morale: Math.min(100, prev[myCity.id].morale + moraleBoost) } }));
             addLog(`武将们操练兵马，军队士气提升了 ${moraleBoost}！`);
         }
         else if (action === 'attack' && targetCityId) {
-            const costFood = myCity.troops * 1; // 1 food per soldier to march
+            const costFood = calculateAttackFoodCost(myCity.troops);
             if (resources.food < costFood) {
                 addLog(`大军出征需要 ${costFood} 粮草，当前粮草不足！`, 'error');
                 return;
             }
-            if (!costAp(2)) return; // Attack costs 2 AP
+            if (!costAp(GAME_BALANCE.military.attackApCost)) return; // Attack costs 2 AP
 
             setResources(prev => ({ ...prev, food: prev.food - costFood }));
             const targetCity = cities[targetCityId];
             const targetFaction = targetCity.owner;
             const enemyOfficers = officers.filter(o => o.faction === targetFaction);
-            const enemyCmdTotal = enemyOfficers.reduce((acc, o) => acc + o.cmd, 0) || 50; // Default if no officers
+            const enemyStats = getEffectiveFactionStats(enemyOfficers);
 
             addLog(`🔥 您对【${targetCity.name}】(${factions[targetFaction].name}) 发动了战争！`, 'warning');
 
             // Simple Battle Calculation
-            const myPower = myCity.troops * (1 + stats.cmd/200) * (myCity.morale/100) * randInt(80, 120) / 100;
-            // City defense acts as a multiplier for enemy troops
-            const enemyPower = targetCity.troops * (1 + enemyCmdTotal/200) * (targetCity.morale/100) * (1 + targetCity.defense/200) * randInt(80, 120) / 100;
+            const myPower = calculateBattlePower({
+                troops: myCity.troops,
+                cmd: stats.cmd,
+                morale: myCity.morale,
+            });
+            const enemyPower = calculateBattlePower({
+                troops: targetCity.troops,
+                cmd: enemyStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+                morale: targetCity.morale,
+                defense: targetCity.defense,
+                isDefender: true,
+            });
 
             setTimeout(() => {
                 if (myPower > enemyPower) {
                     // Win
-                    const troopsLost = Math.floor(targetCity.troops * 0.4 + randInt(100, 500));
-                    const enemyTroopsLeft = 0;
+                    const troopsLost = calculateVictoryLosses(targetCity.troops);
+                    const capturedTroops = getCapturedCityTroops(targetCity.troops);
                     
                     setCities(prev => ({ 
                         ...prev, 
                         [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost) },
-                        [targetCityId]: { ...prev[targetCityId], owner: 'player', troops: Math.floor(targetCity.troops * 0.2) } // Capture city, some troops surrender
+                        [targetCityId]: { ...prev[targetCityId], owner: 'player', troops: capturedTroops, morale: 60 }
                     }));
                     
                     // Capture officers
@@ -407,13 +525,19 @@ export default function App() {
                     if (capturedNames.length > 0) logMsg += `俘虏并收编了敌将：${capturedNames.join(', ')}。`;
                     addLog(logMsg, 'success');
 
+                    const remainingEnemyCities = Object.values(cities).filter(c => c.owner !== 'player' && c.id !== targetCityId);
+                    if (remainingEnemyCities.length === 0) {
+                        addLog('⭐⭐⭐ 捷报！您已攻克所有敌城，一统天下，成就霸业！ ⭐⭐⭐', 'success');
+                        setTimeout(() => alert('恭喜您，一统天下！'), 100);
+                    }
+
                 } else {
                     // Lose
-                    const troopsLost = Math.floor(myCity.troops * 0.6 + randInt(500, 1000));
+                    const troopsLost = calculateDefeatLosses(myCity.troops);
                     setCities(prev => ({
                         ...prev,
-                        [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost), morale: Math.max(10, prev[myCity.id].morale - 20) },
-                        [targetCityId]: { ...prev[targetCityId], troops: Math.max(0, Math.floor(prev[targetCityId].troops * 0.8)) }
+                        [myCity.id]: { ...prev[myCity.id], troops: Math.max(0, prev[myCity.id].troops - troopsLost), morale: Math.max(10, prev[myCity.id].morale - GAME_BALANCE.military.defeatMoralePenalty) },
+                        [targetCityId]: { ...prev[targetCityId], troops: Math.max(0, Math.floor(prev[targetCityId].troops * GAME_BALANCE.military.defenderTroopLossRateOnRepel)) }
                     }));
                     addLog(`⚔️ 战斗失败！敌方城防坚固，我军大败而归，损失了 ${troopsLost} 兵力，士气大跌！`, 'error');
                 }
@@ -431,7 +555,11 @@ export default function App() {
         if (action === 'recruit') {
             // Chance based on Ruler Charm vs Officer Intel/Loyalty
             const pRuler = officers.find(o => o.id === 'player_ruler');
-            const chanceToHire = Math.max(10, (pRuler.cha - officer.int / 2 + randInt(0, 40)));
+            const chanceToHire = calculateRecruitChance({
+                rulerCha: pRuler.cha,
+                officerInt: officer.int,
+                officerLoyalty: officer.loyalty,
+            });
             
             if (chance(chanceToHire)) {
                 setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, faction: 'player', state: 'active', loyalty: 70 } : o));
@@ -441,14 +569,14 @@ export default function App() {
             }
         } 
         else if (action === 'reward') {
-            const cost = 100;
+            const cost = GAME_BALANCE.personnel.rewardGoldCost;
             if (resources.gold < cost) {
                 addLog(`赏赐需要 ${cost} 金，资金不足！`, 'error');
                 setAp(prev => prev + 1); // Refund
                 return;
             }
             setResources(prev => ({ ...prev, gold: prev.gold - cost }));
-            const boost = randInt(10, 20);
+            const boost = calculateRewardBoost();
             setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, loyalty: Math.min(100, o.loyalty + boost) } : o));
             addLog(`赏赐了【${officer.name}】百金，其忠诚度提升了 ${boost}！`);
         }
@@ -461,19 +589,19 @@ export default function App() {
         const stats = getTotalStats();
 
         if (action === 'gift') {
-            const cost = 500;
+            const cost = GAME_BALANCE.diplomacy.giftGoldCost;
             if (resources.gold < cost) {
                 addLog(`赠礼需要 ${cost} 金，资金不足！`, 'error');
                 setAp(prev => prev + 1);
                 return;
             }
             setResources(prev => ({ ...prev, gold: prev.gold - cost }));
-            const relationBoost = Math.floor(stats.pol * 0.15 + randInt(5, 15));
+            const relationBoost = getGiftRelationBoost(stats.pol);
             setFactions(prev => ({ ...prev, [factionId]: { ...prev[factionId], relation: Math.min(100, prev[factionId].relation + relationBoost) } }));
             addLog(`派遣使者向【${targetFaction.name}】献上厚礼，双方友好度提升了 ${relationBoost}。`);
         }
         else if (action === 'alienate') {
-            const cost = 300;
+            const cost = GAME_BALANCE.diplomacy.alienateGoldCost;
             if (resources.gold < cost) {
                 addLog(`散布流言需要 ${cost} 金作为活动经费，资金不足！`, 'error');
                 setAp(prev => prev + 1);
@@ -485,8 +613,8 @@ export default function App() {
             if (enemyOfficers.length > 0) {
                 const targetOfficer = enemyOfficers[randInt(0, enemyOfficers.length - 1)];
                 // Success based on Player Int vs Target Int
-                if (chance(stats.int > targetOfficer.int ? 70 : 30)) {
-                    const loyaltyDrop = randInt(15, 30);
+                if (chance(getAlienateSuccessChance(stats.int, targetOfficer.int))) {
+                    const loyaltyDrop = getAlienateLoyaltyDrop();
                     setOfficers(prev => prev.map(o => o.id === targetOfficer.id ? { ...o, loyalty: Math.max(0, o.loyalty - loyaltyDrop) } : o));
                     addLog(`离间计成功！散布流言使【${targetFaction.name}】的武将【${targetOfficer.name}】心生疑隙，忠诚下降！`, 'success');
                 } else {
@@ -566,6 +694,8 @@ export default function App() {
 
     const renderDesktopSidebar = () => {
         const myCity = getPlayerCity();
+        const playerCities = getPlayerCities();
+        const totalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
 
         return (
             <aside className="hidden lg:flex lg:w-[320px] lg:flex-col lg:gap-4 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/70 lg:p-4 lg:shadow-2xl lg:backdrop-blur-sm">
@@ -576,20 +706,40 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm text-slate-300">
                         <div className="rounded-lg bg-slate-800/70 p-3">
-                            <div className="text-xs text-slate-500">当前城池</div>
+                            <div className="text-xs text-slate-500">当前操作城</div>
                             <div className="mt-1 font-bold text-amber-100">{myCity.name}</div>
                         </div>
                         <div className="rounded-lg bg-slate-800/70 p-3">
-                            <div className="text-xs text-slate-500">驻军兵力</div>
-                            <div className="mt-1 font-bold text-amber-100">{myCity.troops}</div>
+                            <div className="text-xs text-slate-500">总兵力</div>
+                            <div className="mt-1 font-bold text-amber-100">{totalTroops}</div>
                         </div>
                         <div className="rounded-lg bg-slate-800/70 p-3">
-                            <div className="text-xs text-slate-500">士气</div>
+                            <div className="text-xs text-slate-500">当前城士气</div>
                             <div className="mt-1 font-bold text-amber-100">{myCity.morale} / 100</div>
                         </div>
                         <div className="rounded-lg bg-slate-800/70 p-3">
+                            <div className="text-xs text-slate-500">治下城池</div>
+                            <div className="mt-1 font-bold text-amber-100">{playerCities.length} 座</div>
+                        </div>
+                        <div className="rounded-lg bg-slate-800/70 p-3 col-span-2">
                             <div className="text-xs text-slate-500">本月政令</div>
                             <div className="mt-1 font-bold text-amber-100">{ap} / {MAX_AP}</div>
+                        </div>
+                    </div>
+                    <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-400">
+                        <div className="mb-2 font-bold tracking-wide text-slate-300">切换当前城池</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {playerCities.map(city => (
+                                <button
+                                    key={city.id}
+                                    type="button"
+                                    onClick={() => setActiveCityId(city.id)}
+                                    className={`rounded px-2 py-2 text-left transition ${city.id === myCity.id ? 'bg-amber-900/50 text-amber-200 border border-amber-700/60' : 'bg-slate-900/70 text-slate-300 border border-slate-700 hover:border-amber-800/40'}`}
+                                >
+                                    <div className="font-bold">{city.name}</div>
+                                    <div className="text-[10px] opacity-70">{getCityRoleLabel(city)} · 兵 {city.troops} / 商 {city.commerce}</div>
+                                </button>
+                            ))}
                         </div>
                     </div>
                     <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-400">
@@ -621,14 +771,18 @@ export default function App() {
 
     const renderHome = () => {
         const myCity = getPlayerCity();
+        const playerCities = getPlayerCities();
         const myOfficers = getPlayerOfficers();
         const totalStats = getTotalStats();
+        const totalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
+        const totalAgriculture = playerCities.reduce((sum, city) => sum + city.agriculture, 0);
+        const totalCommerce = playerCities.reduce((sum, city) => sum + city.commerce, 0);
 
         return (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
-                        <Tent className="w-6 h-6 mr-2"/> 居城情报：{myCity.name}
+                        <Tent className="w-6 h-6 mr-2"/> 当前城池情报：{myCity.name}
                     </h2>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{officers.find(o=>o.id==='player_ruler')?.name}</div>
@@ -638,6 +792,11 @@ export default function App() {
                         <div><span className="text-slate-500">城防：</span>{myCity.defense}</div>
                         <div><span className="text-slate-500">士气：</span>{myCity.morale} / 100</div>
                     </div>
+                    {playerCities.length > 1 && (
+                        <div className="mt-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                            已占领 {playerCities.length} 座城池，内政、征兵、训练与出兵都以当前选中城池执行。
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
@@ -645,7 +804,7 @@ export default function App() {
                         <Users className="w-6 h-6 mr-2"/> 势力概况
                     </h2>
                     <div className="mb-4">
-                        <div className="text-sm text-slate-400 mb-1">势力总能力 (影响内政与军事效率)</div>
+                        <div className="text-sm text-slate-400 mb-1">势力有效能力 (主将发挥 + 辅佐折算，影响内政与军事效率)</div>
                         <div className="flex space-x-4 text-slate-300 font-mono bg-black/30 p-2 rounded">
                             <span className="text-red-400">统:{totalStats.cmd}</span>
                             <span className="text-blue-400">智:{totalStats.int}</span>
@@ -658,10 +817,55 @@ export default function App() {
                         <div className="flex flex-wrap gap-2">
                             {myOfficers.map(o => (
                                 <span key={o.id} className="px-2 py-1 bg-slate-700 text-xs rounded border border-slate-600 text-amber-100">
-                                    {o.name} <span className="opacity-50">(忠:{o.loyalty})</span>
+                                    {o.name} <span className="opacity-50">(忠:{o.loyalty} / 效率:{Math.round(getOfficerContributionMultiplier(o.loyalty) * 100)}%)</span>
                                 </span>
                             ))}
                         </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-300">
+                        <div className="rounded bg-black/20 p-3">
+                            <div className="text-xs text-slate-500">治下城池</div>
+                            <div className="mt-1 font-bold text-amber-100">{playerCities.length}</div>
+                        </div>
+                        <div className="rounded bg-black/20 p-3">
+                            <div className="text-xs text-slate-500">总兵力</div>
+                            <div className="mt-1 font-bold text-amber-100">{totalTroops}</div>
+                        </div>
+                        <div className="rounded bg-black/20 p-3">
+                            <div className="text-xs text-slate-500">总农业</div>
+                            <div className="mt-1 font-bold text-amber-100">{totalAgriculture}</div>
+                        </div>
+                        <div className="rounded bg-black/20 p-3">
+                            <div className="text-xs text-slate-500">总商业</div>
+                            <div className="mt-1 font-bold text-amber-100">{totalCommerce}</div>
+                        </div>
+                    </div>
+                </div>
+                <div className="md:col-span-2 bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
+                    <h2 className="text-xl font-bold text-amber-500 mb-4 border-b border-amber-900/50 pb-2">城池总览</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {playerCities.map(city => (
+                            <button
+                                key={city.id}
+                                type="button"
+                                onClick={() => setActiveCityId(city.id)}
+                                className={`rounded-lg border p-4 text-left transition ${city.id === myCity.id ? 'border-amber-600 bg-amber-950/30' : 'border-slate-700 bg-black/20 hover:border-amber-800/40'}`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="font-bold text-amber-100">{city.name}</div>
+                                    <span className="text-xs text-slate-400">{city.id === myCity.id ? '当前操作城' : '点击切换'}</span>
+                                </div>
+                                <div className="mt-2 text-xs text-amber-300">定位：{getCityRoleLabel(city)}</div>
+                                <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
+                                    <div>兵力：{city.troops}</div>
+                                    <div>士气：{city.morale}</div>
+                                    <div>农业：{city.agriculture}</div>
+                                    <div>商业：{city.commerce}</div>
+                                    <div>城防：{city.defense}</div>
+                                    <div>用途：{city.role === 'military' ? '便于扩军' : city.role === 'commerce' ? '偏重金钱' : city.role === 'agriculture' ? '偏重粮草' : '经营均衡'}</div>
+                                </div>
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -712,18 +916,19 @@ export default function App() {
                         <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                             <Flag className="w-6 h-6 mr-2"/> 军备筹建
                         </h2>
+                        <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，城市定位为【{getCityRoleLabel(myCity)}】。</p>
                         <div className="flex flex-col space-y-4 mt-4">
                             <div className="flex justify-between items-center bg-black/20 p-3 rounded">
                                 <div>
                                     <div className="text-amber-100 font-bold">征召士兵</div>
-                                    <div className="text-xs text-slate-400">消耗200金, 500粮。受【魅力】影响。</div>
+                                    <div className="text-xs text-slate-400">消耗250金, 800粮。受【有效魅力】与城市商贸影响。</div>
                                 </div>
                                 <button onClick={() => militaryAction('draft')} className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-1 rounded text-sm font-bold transition">征兵 (1政令)</button>
                             </div>
                             <div className="flex justify-between items-center bg-black/20 p-3 rounded">
                                 <div>
                                     <div className="text-amber-100 font-bold">军队操练</div>
-                                    <div className="text-xs text-slate-400">提升军队士气。受【统帅】影响。</div>
+                                    <div className="text-xs text-slate-400">提升军队士气。受【有效统帅】影响。</div>
                                 </div>
                                 <button onClick={() => militaryAction('train')} className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-1 rounded text-sm font-bold transition">训练 (1政令)</button>
                             </div>
@@ -858,7 +1063,7 @@ export default function App() {
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                         <Coins className="w-6 h-6 mr-2"/> 赏赐部下
                     </h2>
-                    <p className="text-xs text-slate-400 mb-4">赏赐100金可提升部下忠诚度。忠诚度过低容易被敌对势力离间或叛逃。</p>
+                    <p className="text-xs text-slate-400 mb-4">忠诚会影响武将实际贡献。60 以下开始明显降效，40 以下可能侵吞军资，30 以下有概率直接叛逃。</p>
                     {myOfficers.length === 0 ? (
                         <p className="text-slate-500 text-sm py-4 text-center">麾下暂无其他武将。</p>
                     ) : (
@@ -871,6 +1076,9 @@ export default function App() {
                                             <span className={`ml-2 text-xs ${o.loyalty < 50 ? 'text-red-400' : o.loyalty < 80 ? 'text-yellow-400' : 'text-green-400'}`}>
                                                 忠诚: {o.loyalty}
                                             </span>
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-400">
+                                            状态：{getLoyaltyStageLabel(o.loyalty)} | 当前贡献效率：{Math.round(getOfficerContributionMultiplier(o.loyalty) * 100)}%
                                         </div>
                                     </div>
                                     <button 

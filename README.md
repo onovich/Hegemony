@@ -4,6 +4,7 @@ A web strategy prototype for Three Kingdoms-themed faction management and conque
 The playable game logic is currently preserved in the original single-file implementation and mounted through the new `src` entry pipeline to keep behavior stable during migration.<br/>**当前可玩逻辑仍保留在原始单文件实现中，并通过新的 `src` 入口链路挂载，以在迁移过程中保持行为稳定。**
 Architecture folders for `data`, `logic/engine`, `logic/hooks`, `view/screens`, and `view/components` have been created as migration foundations for progressive decoupling.<br/>**已创建 `data`、`logic/engine`、`logic/hooks`、`view/screens`、`view/components` 分层目录，作为后续渐进解耦的迁移基础。**
 This means the project is in an architecture-foundation stage, not a fully completed layer-by-layer refactor yet.<br/>**这意味着项目当前处于“架构基础已建立”阶段，而非“全量分层重构已完成”状态。**
+The current product and execution roadmap is documented in `docs/EXECUTION_PLAN.md` for iterative gameplay and balance updates.<br/>**当前产品与执行路线已记录在 `docs/EXECUTION_PLAN.md`，用于后续分阶段推进玩法和数值迭代。**
 ## Tech Stack
 - React 18 + Vite 7.<br/>**React 18 + Vite 7。**
 - Tailwind CSS 3 for utility-first styling compatibility with the original JSX classes.<br/>**使用 Tailwind CSS 3 以兼容原始 JSX 中的原子化样式类。**
