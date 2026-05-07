@@ -24,7 +24,6 @@ import {
     calculateDefeatLosses,
     calculateDevelopmentGain,
     calculateDraftRecruits,
-    calculateProjectedBattlePower,
     calculateRecruitChance,
     calculateRewardBoost,
     calculateTrainingBoost,
@@ -38,9 +37,9 @@ import {
     getExplorationBonus,
     getGiftRelationBoost,
     getOfficerContributionMultiplier,
-    shouldAiAttack,
 } from '../src/logic/engine/gameBalance.js';
 import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
+import { resolveAiMonthlyBattles } from '../src/logic/engine/aiBattleResolution.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 import {
     applyCityLeadershipRelationshipEffects,
@@ -327,126 +326,15 @@ export default function App() {
             aiManagement.logs.forEach(log => addLog(log.text, log.type));
         });
 
-        aiFactionIds.forEach(factionId => {
-            const playerCitiesNow = getFactionCitiesFromState('player');
-            if (!playerCitiesNow.length) {
-                return;
-            }
-
-            const factionCities = getFactionCitiesFromState(factionId);
-            if (!factionCities.length) {
-                return;
-            }
-
-            const attackerCandidates = factionCities.map(city => {
-                const cityStats = getCityProfileFromState(city.id, factionId).militaryStats;
-
-                return {
-                    city,
-                    stats: cityStats,
-                    projectedPower: calculateProjectedBattlePower({
-                        troops: city.troops,
-                        cmd: cityStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
-                        morale: city.morale,
-                    }),
-                };
-            }).sort((left, right) => right.projectedPower - left.projectedPower);
-
-            const defenderCandidates = playerCitiesNow.map(city => {
-                const cityStats = getCityProfileFromState(city.id, 'player').militaryStats;
-
-                return {
-                    city,
-                    stats: cityStats,
-                    projectedPower: calculateProjectedBattlePower({
-                        troops: city.troops,
-                        cmd: cityStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
-                        morale: city.morale,
-                        defense: city.defense,
-                        isDefender: true,
-                    }),
-                };
-            }).sort((left, right) => left.projectedPower - right.projectedPower);
-
-            const attacker = attackerCandidates[0];
-            const defender = defenderCandidates[0];
-            if (!attacker || !defender) {
-                return;
-            }
-
-            const relation = factions[factionId]?.relation ?? 0;
-            if (!shouldAiAttack({
-                attackerCity: attacker.city,
-                attackerStats: attacker.stats,
-                targetCity: defender.city,
-                targetStats: defender.stats,
-                relation,
-            })) {
-                return;
-            }
-
-            const attackerCity = nextCities[attacker.city.id];
-            const defenderCity = nextCities[defender.city.id];
-            addLog(`⚠️ 【${factions[factionId].name}】自【${attackerCity.name}】出兵，进攻我方【${defenderCity.name}】！`, 'warning');
-
-            const attackerPower = calculateBattlePower({
-                troops: attackerCity.troops,
-                cmd: attacker.stats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
-                morale: attackerCity.morale,
-            });
-            const defenderPower = calculateBattlePower({
-                troops: defenderCity.troops,
-                cmd: defender.stats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
-                morale: defenderCity.morale,
-                defense: defenderCity.defense,
-                isDefender: true,
-            });
-
-            if (attackerPower > defenderPower) {
-                const troopsLost = calculateVictoryLosses(defenderCity.troops);
-                const capturedTroops = getCapturedCityTroops(defenderCity.troops);
-                nextCities[attackerCity.id] = {
-                    ...attackerCity,
-                    troops: Math.max(0, attackerCity.troops - troopsLost),
-                    morale: Math.max(45, attackerCity.morale - 5),
-                };
-                nextCities[defenderCity.id] = {
-                    ...defenderCity,
-                    owner: factionId,
-                    governorId: null,
-                    commanderId: null,
-                    troops: capturedTroops,
-                    morale: 55,
-                };
-
-                const fallbackCity = getFactionCitiesFromState('player').find(city => city.id !== defenderCity.id);
-                nextOfficers.forEach(officer => {
-                    if (officer.faction !== 'player' || officer.cityId !== defenderCity.id) {
-                        return;
-                    }
-
-                    if (fallbackCity) {
-                        officer.cityId = fallbackCity.id;
-                    } else {
-                        officer.cityId = null;
-                    }
-                });
-
-                addLog(`❌ 【${defenderCity.name}】失守！敌军攻入城中，我方损失该城控制权。`, 'error');
-            } else {
-                const troopsLost = calculateDefeatLosses(attackerCity.troops);
-                nextCities[attackerCity.id] = {
-                    ...attackerCity,
-                    troops: Math.max(0, attackerCity.troops - troopsLost),
-                    morale: Math.max(35, attackerCity.morale - 10),
-                };
-                nextCities[defenderCity.id] = {
-                    ...defenderCity,
-                    troops: Math.max(0, Math.floor(defenderCity.troops * GAME_BALANCE.military.defenderTroopLossRateOnRepel)),
-                };
-                addLog(`✅ 【${defenderCity.name}】成功击退【${factions[factionId].name}】来犯之敌！`, 'success');
-            }
+        const aiBattleResult = resolveAiMonthlyBattles({
+            nextCities,
+            nextOfficers,
+            factions,
+            getFactionCitiesFromState,
+            getCityProfileFromState,
         });
+
+        aiBattleResult.logs.forEach(log => addLog(log.text, log.type));
 
         setOfficers(nextOfficers);
         setCities(nextCities);
