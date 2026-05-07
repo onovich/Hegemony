@@ -237,5 +237,9 @@ export const GAME_BALANCE = {
     monthlyAgricultureMax: 4,
     monthlyCommerceMin: 1,
     monthlyCommerceMax: 4,
+    attackRelationThreshold: 60,
+    attackMinTroops: 4000,
+    attackMinMorale: 60,
+    attackPowerAdvantageRatio: 1.05,
   },
 };

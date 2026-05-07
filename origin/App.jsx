@@ -23,6 +23,7 @@ import {
     calculateDefeatLosses,
     calculateDevelopmentGain,
     calculateDraftRecruits,
+    calculateProjectedBattlePower,
     calculateRecruitChance,
     calculateRewardBoost,
     calculateTrainingBoost,
@@ -43,6 +44,7 @@ import {
     getMoralePenaltyForStarvation,
     getOfficerContributionMultiplier,
     getUnrestMoraleLoss,
+    shouldAiAttack,
     shouldOfficerCauseUnrest,
     shouldOfficerDesert,
     shouldOfficerEmbezzle,
@@ -73,6 +75,7 @@ export default function App() {
     const [logs, setLogs] = useState([{ id: 0, text: '公元190年，群雄割据，您占据洛阳，开启了争霸之路。', type: 'system' }]);
     const [activeTab, setActiveTab] = useState('HOME');
     const [activeCityId, setActiveCityId] = useState('luoyang');
+    const [gameResult, setGameResult] = useState(null);
     const [isDesktop, setIsDesktop] = useState(false);
     const logsEndRef = useRef(null);
 
@@ -116,7 +119,7 @@ export default function App() {
     const getPlayerCities = () => Object.values(cities).filter(c => c.owner === 'player');
     const getPlayerCity = () => {
         const playerCities = getPlayerCities();
-        return playerCities.find(city => city.id === activeCityId) ?? playerCities[0];
+        return playerCities.find(city => city.id === activeCityId) ?? playerCities[0] ?? null;
     };
     const getCityOfficers = (cityId, factionId = 'player') => officers.filter(o => o.faction === factionId && o.state === 'active' && o.cityId === cityId);
     const getCurrentCityOfficers = () => {
@@ -148,11 +151,14 @@ export default function App() {
 
     const ensureCurrentCityOfficer = (actionLabel) => {
         const currentCityOfficers = getCurrentCityOfficers();
+        const currentCity = getPlayerCity();
         if (currentCityOfficers.length > 0) {
             return true;
         }
 
-        addLog(`【${getPlayerCity().name}】暂无驻守武将，无法执行${actionLabel}。请先在人事中调度武将。`, 'error');
+        addLog(currentCity
+            ? `【${currentCity.name}】暂无驻守武将，无法执行${actionLabel}。请先在人事中调度武将。`
+            : `当前已无可操作城池，无法执行${actionLabel}。`, 'error');
         return false;
     };
 
@@ -184,8 +190,20 @@ export default function App() {
         setDate(nextDate);
         setAp(MAX_AP); // Reset AP
 
-        const myCities = getPlayerCities();
-        const myOfficers = getPlayerOfficers();
+        const nextCities = Object.fromEntries(
+            Object.entries(cities).map(([cityId, city]) => [cityId, { ...city }])
+        );
+        const nextOfficers = officers.map(officer => ({ ...officer }));
+
+        const getFactionCitiesFromState = (factionId) => Object.values(nextCities).filter(city => city.owner === factionId);
+        const getFactionOfficersFromState = (factionId, cityId = null) => nextOfficers.filter(officer => (
+            officer.faction === factionId &&
+            officer.state === 'active' &&
+            (cityId === null || officer.cityId === cityId)
+        ));
+
+        const myCities = getFactionCitiesFromState('player');
+        const myOfficers = getFactionOfficersFromState('player');
         const economy = advanceFactionEconomy({ cities: myCities, officerCount: myOfficers.length });
         const citySummary = myCities.map(city => `${city.name}[${getCityRoleLabel(city)}](农${city.agriculture}/商${city.commerce}/兵${city.troops})`).join('，');
         const otherFactions = Object.values(factions).filter(faction => faction.id !== 'player');
@@ -202,24 +220,22 @@ export default function App() {
             addLog('警告：国库空虚，武将忠诚度下降！', 'error');
             newGold = 0;
             const loyaltyLoss = getLoyaltyPenaltyForBankruptcy();
-            setOfficers(prev => prev.map(o => o.faction === 'player' && o.id !== 'player_ruler' ? { ...o, loyalty: Math.max(0, o.loyalty - loyaltyLoss) } : o));
+            nextOfficers.forEach(officer => {
+                if (officer.faction === 'player' && officer.id !== 'player_ruler') {
+                    officer.loyalty = Math.max(0, officer.loyalty - loyaltyLoss);
+                }
+            });
         }
         if (newFood < 0) {
             addLog('警告：粮草断绝，士兵哗变，士气下降！', 'error');
             newFood = 0;
             const moraleDrop = getMoralePenaltyForStarvation();
-            setCities(prev => {
-                const nextCities = { ...prev };
-
-                myCities.forEach(city => {
-                    nextCities[city.id] = {
-                        ...nextCities[city.id],
-                        troops: Math.floor(nextCities[city.id].troops * (1 - GAME_BALANCE.economy.starvationTroopLossRate)),
-                        morale: Math.max(0, nextCities[city.id].morale - moraleDrop),
-                    };
-                });
-
-                return nextCities;
+            myCities.forEach(city => {
+                nextCities[city.id] = {
+                    ...nextCities[city.id],
+                    troops: Math.floor(nextCities[city.id].troops * (1 - GAME_BALANCE.economy.starvationTroopLossRate)),
+                    morale: Math.max(0, nextCities[city.id].morale - moraleDrop),
+                };
             });
         }
 
@@ -309,45 +325,174 @@ export default function App() {
         }));
 
         if (desertingOfficerIds.size > 0) {
-            setOfficers(prev => prev.map(officer => desertingOfficerIds.has(officer.id)
-                ? { ...officer, faction: 'free', state: 'discovered', loyalty: 40 }
-                : officer));
+            nextOfficers.forEach(officer => {
+                if (desertingOfficerIds.has(officer.id)) {
+                    officer.faction = 'free';
+                    officer.cityId = null;
+                    officer.state = 'discovered';
+                    officer.loyalty = 40;
+                }
+            });
         }
 
         if (Object.keys(moraleLossByCity).length > 0) {
-            setCities(prev => {
-                const nextCities = { ...prev };
-
-                Object.entries(moraleLossByCity).forEach(([cityId, moraleLoss]) => {
-                    nextCities[cityId] = {
-                        ...nextCities[cityId],
-                        morale: Math.max(0, nextCities[cityId].morale - moraleLoss),
-                    };
-                });
-
-                return nextCities;
+            Object.entries(moraleLossByCity).forEach(([cityId, moraleLoss]) => {
+                nextCities[cityId] = {
+                    ...nextCities[cityId],
+                    morale: Math.max(0, nextCities[cityId].morale - moraleLoss),
+                };
             });
         }
 
         loyaltyEventLogs.forEach(log => addLog(log.text, log.type));
 
-        // AI Actions (Simplified)
-        setCities(prev => {
-            let nextCities = { ...prev };
-            Object.keys(nextCities).forEach(key => {
-                const c = nextCities[key];
-                if (c.owner !== 'player') {
-                    const growth = getAiGrowth();
-                    c.troops += growth.troops;
-                    c.agriculture += growth.agriculture;
-                    c.commerce += growth.commerce;
-                }
-            });
-            return nextCities;
+        Object.keys(nextCities).forEach(key => {
+            const city = nextCities[key];
+            if (city.owner !== 'player') {
+                const growth = getAiGrowth();
+                city.troops += growth.troops;
+                city.agriculture += growth.agriculture;
+                city.commerce += growth.commerce;
+            }
         });
+
+        const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
+
+        aiFactionIds.forEach(factionId => {
+            const playerCitiesNow = getFactionCitiesFromState('player');
+            if (!playerCitiesNow.length) {
+                return;
+            }
+
+            const factionCities = getFactionCitiesFromState(factionId);
+            if (!factionCities.length) {
+                return;
+            }
+
+            const attackerCandidates = factionCities.map(city => {
+                const cityOfficers = getFactionOfficersFromState(factionId, city.id);
+                const cityStats = getEffectiveFactionStats(cityOfficers);
+
+                return {
+                    city,
+                    stats: cityStats,
+                    projectedPower: calculateProjectedBattlePower({
+                        troops: city.troops,
+                        cmd: cityStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+                        morale: city.morale,
+                    }),
+                };
+            }).sort((left, right) => right.projectedPower - left.projectedPower);
+
+            const defenderCandidates = playerCitiesNow.map(city => {
+                const cityOfficers = getFactionOfficersFromState('player', city.id);
+                const cityStats = getEffectiveFactionStats(cityOfficers);
+
+                return {
+                    city,
+                    stats: cityStats,
+                    projectedPower: calculateProjectedBattlePower({
+                        troops: city.troops,
+                        cmd: cityStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+                        morale: city.morale,
+                        defense: city.defense,
+                        isDefender: true,
+                    }),
+                };
+            }).sort((left, right) => left.projectedPower - right.projectedPower);
+
+            const attacker = attackerCandidates[0];
+            const defender = defenderCandidates[0];
+            if (!attacker || !defender) {
+                return;
+            }
+
+            const relation = factions[factionId]?.relation ?? 0;
+            if (!shouldAiAttack({
+                attackerCity: attacker.city,
+                attackerStats: attacker.stats,
+                targetCity: defender.city,
+                targetStats: defender.stats,
+                relation,
+            })) {
+                return;
+            }
+
+            const attackerCity = nextCities[attacker.city.id];
+            const defenderCity = nextCities[defender.city.id];
+            addLog(`⚠️ 【${factions[factionId].name}】自【${attackerCity.name}】出兵，进攻我方【${defenderCity.name}】！`, 'warning');
+
+            const attackerPower = calculateBattlePower({
+                troops: attackerCity.troops,
+                cmd: attacker.stats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+                morale: attackerCity.morale,
+            });
+            const defenderPower = calculateBattlePower({
+                troops: defenderCity.troops,
+                cmd: defender.stats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+                morale: defenderCity.morale,
+                defense: defenderCity.defense,
+                isDefender: true,
+            });
+
+            if (attackerPower > defenderPower) {
+                const troopsLost = calculateVictoryLosses(defenderCity.troops);
+                const capturedTroops = getCapturedCityTroops(defenderCity.troops);
+                nextCities[attackerCity.id] = {
+                    ...attackerCity,
+                    troops: Math.max(0, attackerCity.troops - troopsLost),
+                    morale: Math.max(45, attackerCity.morale - 5),
+                };
+                nextCities[defenderCity.id] = {
+                    ...defenderCity,
+                    owner: factionId,
+                    troops: capturedTroops,
+                    morale: 55,
+                };
+
+                const fallbackCity = getFactionCitiesFromState('player').find(city => city.id !== defenderCity.id);
+                nextOfficers.forEach(officer => {
+                    if (officer.faction !== 'player' || officer.cityId !== defenderCity.id) {
+                        return;
+                    }
+
+                    if (fallbackCity) {
+                        officer.cityId = fallbackCity.id;
+                    } else {
+                        officer.cityId = null;
+                    }
+                });
+
+                addLog(`❌ 【${defenderCity.name}】失守！敌军攻入城中，我方损失该城控制权。`, 'error');
+            } else {
+                const troopsLost = calculateDefeatLosses(attackerCity.troops);
+                nextCities[attackerCity.id] = {
+                    ...attackerCity,
+                    troops: Math.max(0, attackerCity.troops - troopsLost),
+                    morale: Math.max(35, attackerCity.morale - 10),
+                };
+                nextCities[defenderCity.id] = {
+                    ...defenderCity,
+                    troops: Math.max(0, Math.floor(defenderCity.troops * GAME_BALANCE.military.defenderTroopLossRateOnRepel)),
+                };
+                addLog(`✅ 【${defenderCity.name}】成功击退【${factions[factionId].name}】来犯之敌！`, 'success');
+            }
+        });
+
+        setOfficers(nextOfficers);
+        setCities(nextCities);
         
-        // Win Condition Check
-        const enemyCities = Object.values(cities).filter(c => c.owner !== 'player');
+        const remainingPlayerCities = Object.values(nextCities).filter(city => city.owner === 'player');
+        const enemyCities = Object.values(nextCities).filter(city => city.owner !== 'player');
+        if (remainingPlayerCities.length === 0) {
+            setOfficers(nextOfficers);
+            setCities(nextCities);
+            setGameResult('defeat');
+            addLog('☠️ 我方城池尽失，基业崩溃，霸业未成而中道崩殂！', 'error');
+            setTimeout(() => alert('游戏结束：我方城池尽失。'), 100);
+            return;
+        }
+
         if (enemyCities.length === 0) {
             addLog('⭐⭐⭐ 捷报！您已攻克所有敌城，一统天下，成就霸业！ ⭐⭐⭐', 'success');
             alert("恭喜您，一统天下！");
@@ -1269,6 +1414,38 @@ export default function App() {
     };
 
     // --- Main Layout ---
+    if (gameResult === 'defeat') {
+        return (
+            <div className="min-h-screen bg-slate-950 px-6 py-16 text-amber-50" style={{ backgroundImage: 'radial-gradient(circle at center, #1e293b 0%, #020617 100%)' }}>
+                <div className="mx-auto max-w-3xl rounded-2xl border border-red-900/40 bg-slate-900/80 p-8 shadow-2xl">
+                    <div className="text-center">
+                        <h1 className="text-4xl font-bold tracking-widest text-red-400">基业覆灭</h1>
+                        <p className="mt-4 text-slate-300">公元 {date.year} 年 {date.month} 月，我方城池尽失，天下霸业暂告终结。</p>
+                    </div>
+                    <div className="mt-6 rounded-xl border border-amber-900/20 bg-black/30 p-4 text-sm text-slate-300">
+                        <div className="mb-2 font-bold text-amber-300">终局摘要</div>
+                        <div>剩余金钱：{resources.gold}</div>
+                        <div>剩余粮草：{resources.food}</div>
+                        <div>剩余名望：{resources.reputation}</div>
+                    </div>
+                    <div className="mt-6 rounded-xl border border-amber-900/20 bg-black/30 p-4">
+                        <div className="mb-3 font-bold tracking-widest text-amber-400">最后军情</div>
+                        {renderLog('max-h-80 overflow-y-auto font-mono text-sm')}
+                    </div>
+                    <div className="mt-6 text-center">
+                        <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="rounded-full bg-red-800 px-6 py-3 font-bold text-white transition hover:bg-red-700"
+                        >
+                            重新起兵
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col font-sans select-none" style={{ backgroundImage: 'radial-gradient(circle at center, #1e293b 0%, #020617 100%)' }}>
             {renderHeader()}

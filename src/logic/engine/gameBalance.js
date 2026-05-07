@@ -198,6 +198,43 @@ export function calculateBattlePower({ troops, cmd, morale, defense = 0, isDefen
   return troops * commandFactor * moraleFactor * defenseFactor * variance;
 }
 
+export function calculateProjectedBattlePower({ troops, cmd, morale, defense = 0, isDefender = false }) {
+  const commandFactor = 1 + cmd / GAME_BALANCE.military.commandDivisor;
+  const moraleFactor = GAME_BALANCE.military.moraleBase + morale / GAME_BALANCE.military.moraleDivisor;
+  const defenseFactor = isDefender ? 1 + defense / GAME_BALANCE.military.defenseDivisor : 1;
+
+  return troops * commandFactor * moraleFactor * defenseFactor;
+}
+
+export function shouldAiAttack({ attackerCity, attackerStats, targetCity, targetStats, relation }) {
+  if (relation > GAME_BALANCE.ai.attackRelationThreshold) {
+    return false;
+  }
+
+  if (attackerCity.troops < GAME_BALANCE.ai.attackMinTroops) {
+    return false;
+  }
+
+  if (attackerCity.morale < GAME_BALANCE.ai.attackMinMorale) {
+    return false;
+  }
+
+  const attackerPower = calculateProjectedBattlePower({
+    troops: attackerCity.troops,
+    cmd: attackerStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+    morale: attackerCity.morale,
+  });
+  const defenderPower = calculateProjectedBattlePower({
+    troops: targetCity.troops,
+    cmd: targetStats.cmd || GAME_BALANCE.military.defaultEnemyCommand,
+    morale: targetCity.morale,
+    defense: targetCity.defense,
+    isDefender: true,
+  });
+
+  return attackerPower >= defenderPower * GAME_BALANCE.ai.attackPowerAdvantageRatio;
+}
+
 export function calculateVictoryLosses(enemyTroops) {
   return Math.floor(
     enemyTroops * GAME_BALANCE.military.victoryLossRate +
