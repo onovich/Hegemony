@@ -15,6 +15,7 @@ import {
     MAX_AP,
 } from '../src/data/gameConfig.js';
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
+import { resolveMonthlyCityEvents } from '../src/logic/engine/cityEvents.js';
 import {
     advanceTurnEconomy,
     advanceFactionEconomy,
@@ -386,12 +387,6 @@ export default function App() {
             }
         });
 
-        setResources(prev => ({
-            ...prev,
-            gold: Math.max(0, newGold - stolenGold + tradeGold),
-            food: newFood + tradeFood,
-        }));
-
         if (desertingOfficerIds.size > 0) {
             nextOfficers.forEach(officer => {
                 if (desertingOfficerIds.has(officer.id)) {
@@ -412,7 +407,24 @@ export default function App() {
             });
         }
 
+        const monthlyCityEvents = resolveMonthlyCityEvents({
+            cities: getFactionCitiesFromState('player'),
+            getCityProfile: (cityId) => getCityProfileFromState(cityId, 'player'),
+        });
+
+        Object.entries(monthlyCityEvents.cityUpdates).forEach(([cityId, updatedCity]) => {
+            nextCities[cityId] = updatedCity;
+        });
+
+        setResources(prev => ({
+            ...prev,
+            gold: Math.max(0, newGold - stolenGold + tradeGold + monthlyCityEvents.resourceDelta.gold),
+            food: newFood + tradeFood + monthlyCityEvents.resourceDelta.food,
+            reputation: Math.max(0, prev.reputation + monthlyCityEvents.resourceDelta.reputation),
+        }));
+
         loyaltyEventLogs.forEach(log => addLog(log.text, log.type));
+        monthlyCityEvents.logs.forEach(log => addLog(log.text, log.type));
 
         Object.keys(nextCities).forEach(key => {
             const city = nextCities[key];
@@ -1111,6 +1123,9 @@ export default function App() {
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                         <Tent className="w-6 h-6 mr-2"/> 当前城池情报：{myCity.name}
                     </h2>
+                    <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                        所属地区：{myCity.region} · 城市特色：{myCity.specialty}
+                    </div>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
                         <div><span className="text-slate-500">驻军：</span>{myCity.troops}</div>
@@ -1207,6 +1222,7 @@ export default function App() {
                                     <span className="text-xs text-slate-400">{city.id === myCity.id ? '当前操作城' : '点击切换'}</span>
                                 </div>
                                 <div className="mt-2 text-xs text-amber-300">定位：{getCityRoleLabel(city)}</div>
+                                <div className="mt-1 text-xs text-slate-500">地区：{city.region} · 特色：{city.specialty}</div>
                                 <div className="mt-1 text-xs text-slate-400">太守：{cityProfile.governor?.name ?? '未任命'} | 主将：{cityProfile.commander?.name ?? '未任命'}</div>
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
                                     <div>兵力：{city.troops}</div>
