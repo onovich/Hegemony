@@ -1,5 +1,6 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
 import { resolveMonthlyCityEvents } from './cityEvents.js';
+import { resolveMonthlyDiplomacyEvents } from './diplomacyEvents.js';
 import {
   getBorderPressureMoraleLoss,
   getEmbezzleGoldLoss,
@@ -198,6 +199,11 @@ export function resolvePlayerMonthlyTurn({
     cities: getFactionCitiesFromState('player'),
     getCityProfile: (cityId) => getCityProfileFromState(cityId, 'player'),
   });
+  const monthlyDiplomacyEvents = resolveMonthlyDiplomacyEvents({
+    factions,
+    playerCities: getFactionCitiesFromState('player'),
+    nextCities,
+  });
   const monthlyOfficerEvents = resolveMonthlyOfficerRelationshipEvents({
     cities: getFactionCitiesFromState('player'),
     officers: nextOfficers,
@@ -205,6 +211,10 @@ export function resolvePlayerMonthlyTurn({
   });
 
   Object.entries(monthlyCityEvents.cityUpdates).forEach(([cityId, updatedCity]) => {
+    nextCities[cityId] = updatedCity;
+  });
+
+  Object.entries(monthlyDiplomacyEvents.cityUpdates).forEach(([cityId, updatedCity]) => {
     nextCities[cityId] = updatedCity;
   });
 
@@ -223,14 +233,15 @@ export function resolvePlayerMonthlyTurn({
 
   return {
     resources: {
-      gold: Math.max(0, newGold - stolenGold + tradeGold + monthlyCityEvents.resourceDelta.gold + monthlyOfficerEvents.resourceDelta.gold),
-      food: newFood + tradeFood + monthlyCityEvents.resourceDelta.food,
-      reputation: Math.max(0, resources.reputation + monthlyCityEvents.resourceDelta.reputation + monthlyOfficerEvents.resourceDelta.reputation),
+      gold: Math.max(0, newGold - stolenGold + tradeGold + monthlyCityEvents.resourceDelta.gold + monthlyDiplomacyEvents.resourceDelta.gold + monthlyOfficerEvents.resourceDelta.gold),
+      food: Math.max(0, newFood + tradeFood + monthlyCityEvents.resourceDelta.food + monthlyDiplomacyEvents.resourceDelta.food),
+      reputation: Math.max(0, resources.reputation + monthlyCityEvents.resourceDelta.reputation + monthlyDiplomacyEvents.resourceDelta.reputation + monthlyOfficerEvents.resourceDelta.reputation),
     },
     logs: [
       ...logs,
       ...loyaltyEventLogs,
       ...monthlyCityEvents.logs,
+      ...monthlyDiplomacyEvents.logs,
       ...monthlyOfficerEvents.logs,
     ],
   };

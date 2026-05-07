@@ -434,6 +434,13 @@ export const GAME_BALANCE = {
     borderPressureMoraleLossMax: 6,
     attackRelationDrop: 40,
     friendlyAttackReputationPenalty: 10,
+    monthlyEvents: {
+      tradeBaseChance: 24,
+      tradeRelationFactor: 0.6,
+      hostileBaseChance: 22,
+      hostileRelationFactor: 0.5,
+      maxChance: 46,
+    },
   },
   ai: {
     monthlyTroopsMin: 120,
