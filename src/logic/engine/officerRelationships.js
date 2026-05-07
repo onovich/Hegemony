@@ -1,4 +1,5 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
+import { OFFICER_PAIR_CITY_EVENTS } from '../../data/officerCityEvents.js';
 import { ALIGNMENT_RELATION_SCORES, OFFICER_RELATION_PROFILES } from '../../data/officerRelationships.js';
 
 function clamp(value, min, max) {
@@ -228,6 +229,50 @@ function getCityOfficerEventChance(score) {
   );
 }
 
+function interpolateText(template, values) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{{${key}}}`, value),
+    template,
+  );
+}
+
+function getOfficerPairKey(firstOfficerId, secondOfficerId) {
+  return [firstOfficerId, secondOfficerId].sort().join('|');
+}
+
+function getGenericCityOfficerEventConfig(tier) {
+  const config = GAME_BALANCE.relationships.cityOfficerEvents[tier];
+
+  return {
+    type: tier === 'strongPositive' || tier === 'positive' ? 'success' : 'warning',
+    text: tier === 'strongPositive' || tier === 'positive'
+      ? '【{{city}}】中，【{{first}}】与【{{second}}】意气相投，共襄城务，城中士气提升 {{morale}}，额外获得 {{gold}} 金。'
+      : '【{{city}}】中，【{{first}}】与【{{second}}】龃龉日深，内耗不断，城中士气下降 {{morale}}，额外损失 {{gold}} 金。',
+    effects: {
+      morale: [config.moraleMin, config.moraleMax],
+      gold: [config.goldMin, config.goldMax],
+      loyalty: [config.loyaltyMin, config.loyaltyMax],
+    },
+  };
+}
+
+function rollEventEffects(eventConfig) {
+  return Object.fromEntries(
+    Object.entries(eventConfig.effects).map(([key, [min, max]]) => [key, randInt(min, max)]),
+  );
+}
+
+function pickCityOfficerEvent(pair, tier) {
+  const pairKey = getOfficerPairKey(pair.first.id, pair.second.id);
+  const pairEvents = (OFFICER_PAIR_CITY_EVENTS[pairKey] ?? []).filter((event) => event.tier === tier);
+
+  if (pairEvents.length > 0) {
+    return pairEvents[randInt(0, pairEvents.length - 1)];
+  }
+
+  return getGenericCityOfficerEventConfig(tier);
+}
+
 export function resolveMonthlyOfficerRelationshipEvents({ cities, officers, factionId }) {
   const cityUpdates = {};
   const officerLoyaltyChanges = {};
@@ -259,10 +304,11 @@ export function resolveMonthlyOfficerRelationshipEvents({ cities, officers, fact
       return;
     }
 
-    const config = GAME_BALANCE.relationships.cityOfficerEvents[tier];
-    const moraleDelta = randInt(config.moraleMin, config.moraleMax);
-    const loyaltyDelta = randInt(config.loyaltyMin, config.loyaltyMax);
-    const goldDelta = randInt(config.goldMin, config.goldMax);
+    const eventConfig = pickCityOfficerEvent(pair, tier);
+    const rolledEffects = rollEventEffects(eventConfig);
+    const moraleDelta = rolledEffects.morale;
+    const loyaltyDelta = rolledEffects.loyalty;
+    const goldDelta = rolledEffects.gold;
     const isPositive = pair.score > 0;
     const nextCity = { ...(cityUpdates[city.id] ?? city) };
 
@@ -273,10 +319,15 @@ export function resolveMonthlyOfficerRelationshipEvents({ cities, officers, fact
     officerLoyaltyChanges[pair.second.id] = (officerLoyaltyChanges[pair.second.id] ?? 0) + (isPositive ? loyaltyDelta : -loyaltyDelta);
 
     logs.push({
-      text: isPositive
-        ? `【${city.name}】中，【${pair.first.name}】与【${pair.second.name}】意气相投，共襄城务，城中士气提升 ${moraleDelta}，额外获得 ${goldDelta} 金。`
-        : `【${city.name}】中，【${pair.first.name}】与【${pair.second.name}】龃龉日深，内耗不断，城中士气下降 ${moraleDelta}，额外损失 ${goldDelta} 金。`,
-      type: isPositive ? 'success' : 'warning',
+      text: interpolateText(eventConfig.text, {
+        city: city.name,
+        first: pair.first.name,
+        second: pair.second.name,
+        morale: moraleDelta,
+        gold: goldDelta,
+        loyalty: loyaltyDelta,
+      }),
+      type: eventConfig.type,
     });
   });
 

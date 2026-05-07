@@ -1216,7 +1216,7 @@ export default function App() {
                         主官配合：{currentCityProfile.leadershipRelation.relationLabel} {currentCityProfile.governor && currentCityProfile.commander && currentCityProfile.governor.id !== currentCityProfile.commander.id ? `(相性 ${currentCityProfile.leadershipRelation.relationScore})` : '（待成型）'}
                     </div>
                     <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
-                        同城人物事件：驻守武将之间若是知己，月度可能触发协力增益；若是死敌，则可能引发内耗。
+                        同城人物事件：驻守武将之间若是知己，月度可能触发协力增益；若是死敌，则可能引发内耗。部分特定人物组合还会触发专属事件文本与结果。
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
