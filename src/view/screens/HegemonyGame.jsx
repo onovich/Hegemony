@@ -711,37 +711,39 @@ export default function App() {
     // --- Sub-Components (Renderers) ---
 
     const renderHeader = () => (
-        <div className="bg-slate-900 border-b border-amber-900/50 p-4 lg:px-6 text-amber-50 shadow-md">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-                <Crown className="w-8 h-8 text-yellow-500" />
-                <div>
-                    <h1 className="text-xl font-bold tracking-widest text-amber-500">霸业：三国崛起</h1>
-                    <span className="text-xs text-slate-400">主公：{officers.find(o=>o.id==='player_ruler')?.name}{isDesktop ? ` · 当前界面：${activeTabLabel}` : ''}</span>
+        <div className="border-b border-amber-900/50 bg-slate-900 px-4 py-4 text-amber-50 shadow-md lg:px-6">
+            <div className="mx-auto max-w-7xl space-y-3 lg:space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                        <Crown className="h-8 w-8 text-yellow-500" />
+                        <div>
+                            <h1 className="text-lg font-bold tracking-[0.2em] text-amber-500 sm:text-xl">霸业：三国崛起</h1>
+                            <span className="text-xs text-slate-400">主公：{officers.find(o=>o.id==='player_ruler')?.name}{isDesktop ? ` · 当前界面：${activeTabLabel}` : ` · 当前城：${getPlayerCity()?.name ?? '无'}`}</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 lg:justify-end">
+                        <div className="flex items-center text-sm text-amber-200">
+                            <Calendar className="mr-2 h-4 w-4 sm:h-5 sm:w-5"/>
+                            公元 {date.year} 年 {date.month} 月
+                        </div>
+                        <button onClick={nextMonth} className="flex items-center rounded border border-red-900 bg-red-800 px-3 py-2 text-sm font-bold text-white shadow transition hover:bg-red-700 sm:px-4">
+                            次月 <ArrowRight className="ml-1 h-4 w-4"/>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div className="flex space-x-6 text-sm font-medium mt-2 sm:mt-0">
-                <div className="flex items-center text-yellow-400" title="金钱"><Coins className="w-4 h-4 mr-1"/> {resources.gold}</div>
-                <div className="flex items-center text-green-400" title="粮草"><Wheat className="w-4 h-4 mr-1"/> {resources.food}</div>
-                <div className="flex items-center text-blue-400" title="民心"><Users className="w-4 h-4 mr-1"/> {resources.reputation}</div>
-                <div className="flex items-center text-purple-400" title="本月剩余政令"><Scroll className="w-4 h-4 mr-1"/> 政令: {ap}/{MAX_AP}</div>
-            </div>
-            <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                <div className="flex items-center text-amber-200">
-                    <Calendar className="w-5 h-5 mr-2"/>
-                    公元 {date.year} 年 {date.month} 月
+                <div className="grid grid-cols-2 gap-2 text-xs font-medium sm:flex sm:flex-wrap sm:gap-4 sm:text-sm">
+                    <div className="flex items-center rounded bg-black/20 px-3 py-2 text-yellow-400 sm:bg-transparent sm:px-0 sm:py-0" title="金钱"><Coins className="mr-1 h-4 w-4"/> {resources.gold}</div>
+                    <div className="flex items-center rounded bg-black/20 px-3 py-2 text-green-400 sm:bg-transparent sm:px-0 sm:py-0" title="粮草"><Wheat className="mr-1 h-4 w-4"/> {resources.food}</div>
+                    <div className="flex items-center rounded bg-black/20 px-3 py-2 text-blue-400 sm:bg-transparent sm:px-0 sm:py-0" title="民心"><Users className="mr-1 h-4 w-4"/> {resources.reputation}</div>
+                    <div className="flex items-center rounded bg-black/20 px-3 py-2 text-purple-400 sm:bg-transparent sm:px-0 sm:py-0" title="本月剩余政令"><Scroll className="mr-1 h-4 w-4"/> 政令: {ap}/{MAX_AP}</div>
                 </div>
-                <button onClick={nextMonth} className="px-4 py-2 bg-red-800 hover:bg-red-700 text-white rounded shadow border border-red-900 transition flex items-center font-bold">
-                    次月 <ArrowRight className="w-4 h-4 ml-1"/>
-                </button>
-            </div>
             </div>
         </div>
     );
 
     const renderNav = () => {
         return (
-            <div className="w-24 bg-slate-800 flex flex-col border-r border-amber-900/30 flex-shrink-0 lg:w-28 lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/70 lg:shadow-2xl lg:backdrop-blur-sm lg:overflow-hidden">
+            <div className="hidden w-24 flex-shrink-0 flex-col border-r border-amber-900/30 bg-slate-800 lg:flex lg:w-28 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/70 lg:shadow-2xl lg:backdrop-blur-sm">
                 {TAB_ITEMS.map(item => {
                     const Icon = item.icon;
 
@@ -760,6 +762,68 @@ export default function App() {
             </div>
         );
     };
+
+    const renderMobileCommandBar = () => {
+        const myCity = getPlayerCity();
+        const playerCities = getPlayerCities();
+
+        if (!myCity) {
+            return null;
+        }
+
+        return (
+            <div className="border-b border-amber-900/20 bg-slate-950/70 px-4 py-3 lg:hidden">
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <div className="text-xs tracking-[0.2em] text-slate-500">移动指挥</div>
+                        <div className="mt-1 text-sm font-bold text-amber-100">{activeTabLabel} · {myCity.name}</div>
+                    </div>
+                    <div className="rounded border border-slate-700 bg-black/20 px-3 py-2 text-right text-xs text-slate-300">
+                        <div>驻军 {myCity.troops}</div>
+                        <div>士气 {myCity.morale}</div>
+                    </div>
+                </div>
+                {playerCities.length > 1 ? (
+                    <div className="mt-3 overflow-x-auto pb-1">
+                        <div className="flex min-w-max gap-2">
+                            {playerCities.map(city => (
+                                <button
+                                    key={city.id}
+                                    type="button"
+                                    onClick={() => setActiveCityId(city.id)}
+                                    className={`rounded-full border px-3 py-2 text-xs font-bold transition ${city.id === myCity.id ? 'border-amber-600 bg-amber-950/40 text-amber-200' : 'border-slate-700 bg-slate-900/60 text-slate-300'}`}
+                                >
+                                    {city.name} · {city.troops}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        );
+    };
+
+    const renderMobileNav = () => (
+        <div className="sticky bottom-0 z-20 border-t border-amber-900/30 bg-slate-950/95 backdrop-blur lg:hidden">
+            <div className="grid grid-cols-6">
+                {TAB_ITEMS.map(item => {
+                    const Icon = item.icon;
+
+                    return (
+                        <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setActiveTab(item.id)}
+                            className={`flex min-h-[4.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-amber-900/40 text-amber-300' : 'text-slate-400'}`}
+                        >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
 
     const renderLog = (className = 'h-48 bg-black/80 border-t border-amber-900/50 p-3 overflow-y-auto font-mono text-sm shadow-inner shrink-0') => (
         <div className={className}>
@@ -867,7 +931,7 @@ export default function App() {
         const totalCommerce = playerCities.reduce((sum, city) => sum + city.commerce, 0);
 
         return (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 md:grid-cols-2">
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                         <Tent className="w-6 h-6 mr-2"/> 当前城池情报：{myCity.name}
@@ -884,7 +948,7 @@ export default function App() {
                     <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                         同城人物事件：驻守武将之间若是知己，月度可能触发协力增益；若是死敌，则可能引发内耗。部分特定人物组合还会触发专属事件文本与结果。
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-slate-300">
+                    <div className="grid grid-cols-1 gap-3 text-slate-300 sm:grid-cols-2 sm:gap-4">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
                         <div><span className="text-slate-500">驻军：</span>{myCity.troops}</div>
                         <div><span className="text-slate-500">农业：</span>{myCity.agriculture}</div>
@@ -923,7 +987,7 @@ export default function App() {
                     </h2>
                     <div className="mb-4">
                         <div className="text-sm text-slate-400 mb-1">势力有效能力 (主将发挥 + 辅佐折算，影响内政与军事效率)</div>
-                        <div className="flex space-x-4 text-slate-300 font-mono bg-black/30 p-2 rounded">
+                        <div className="grid grid-cols-2 gap-2 rounded bg-black/30 p-2 font-mono text-slate-300 sm:flex sm:flex-wrap sm:gap-4">
                             <span className="text-red-400">统:{totalStats.cmd}</span>
                             <span className="text-blue-400">智:{totalStats.int}</span>
                             <span className="text-green-400">政:{totalStats.pol}</span>
@@ -940,7 +1004,7 @@ export default function App() {
                             ))}
                         </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-300">
+                    <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-300 sm:grid-cols-2">
                         <div className="rounded bg-black/20 p-3">
                             <div className="text-xs text-slate-500">治下城池</div>
                             <div className="mt-1 font-bold text-amber-100">{playerCities.length}</div>
@@ -1048,7 +1112,7 @@ export default function App() {
         const enemyCities = Object.values(cities).filter(c => c.owner !== 'player');
 
         return (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 md:grid-cols-2">
                 {/* Preparation */}
                 <div className="space-y-6">
                     <div className="bg-slate-800/80 p-6 rounded-lg border border-amber-900/30">
@@ -1062,14 +1126,14 @@ export default function App() {
                             驻守武将：{currentCityOfficers.length} 人 | 当前城有效统率：{currentCityStats.cmd} | 当前城有效魅力：{currentCityStats.cha}
                         </div>
                         <div className="flex flex-col space-y-4 mt-4">
-                            <div className="flex justify-between items-center bg-black/20 p-3 rounded">
+                            <div className="flex flex-col gap-3 rounded bg-black/20 p-3 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="text-amber-100 font-bold">征召士兵</div>
                                     <div className="text-xs text-slate-400">消耗250金, 800粮。受【有效魅力】与城市商贸影响。</div>
                                 </div>
                                 <button onClick={() => militaryAction('draft')} className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-1 rounded text-sm font-bold transition">征兵 (1政令)</button>
                             </div>
-                            <div className="flex justify-between items-center bg-black/20 p-3 rounded">
+                            <div className="flex flex-col gap-3 rounded bg-black/20 p-3 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="text-amber-100 font-bold">军队操练</div>
                                     <div className="text-xs text-slate-400">提升军队士气。受【有效统帅】影响。</div>
@@ -1088,7 +1152,7 @@ export default function App() {
                     <p className="text-sm text-slate-400 mb-4">选择目标城池出兵。每次出征消耗2政令，并根据兵力消耗对应粮草。</p>
                     {pendingBattle ? (
                         <div className="mb-4 rounded-lg border border-red-900/40 bg-black/30 p-4">
-                            <div className="flex items-center justify-between gap-4 border-b border-slate-700 pb-3">
+                            <div className="flex flex-col gap-3 border-b border-slate-700 pb-3 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div className="text-sm font-bold text-red-300">战前推演：{pendingBattle.preview.targetName}</div>
                                     <div className="mt-1 text-xs text-slate-400">敌方势力：{pendingBattle.preview.factionName} | 战场：{pendingBattle.preview.sceneLabel} | 粮耗：{pendingBattle.preview.attackFoodCost}</div>
@@ -1146,7 +1210,7 @@ export default function App() {
                                 const isCeasefireActive = (faction.ceasefireTurns ?? 0) > 0;
                                 const diplomacyOpening = city.diplomacyOpening;
                                 return (
-                                    <div key={city.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded hover:border-red-900/50 transition">
+                                    <div key={city.id} className="flex flex-col gap-3 rounded border border-slate-700 bg-black/40 p-3 transition hover:border-red-900/50 md:flex-row md:items-center md:justify-between">
                                         <div>
                                             <div className="text-amber-100 font-bold flex items-center">
                                                 {city.name} 
@@ -1241,7 +1305,7 @@ export default function App() {
         const playerRuler = getPlayerRuler();
 
         return (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 md:grid-cols-2">
                 <div className="bg-slate-800/80 p-5 rounded-lg border border-amber-900/30">
                     <h2 className="text-xl font-bold text-amber-500 mb-4 flex items-center border-b border-amber-900/50 pb-2">
                         <UserPlus className="w-6 h-6 mr-2"/> 登庸在野名士
@@ -1251,7 +1315,7 @@ export default function App() {
                     ) : (
                         <div className="space-y-3">
                             {discoveredOfficers.map(o => (
-                                <div key={o.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded">
+                                <div key={o.id} className="flex flex-col gap-3 rounded border border-slate-700 bg-black/40 p-3 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="text-xs text-slate-400 font-mono mt-1">统:{o.cmd} 智:{o.int} 政:{o.pol} 魅:{o.cha}</div>
@@ -1281,14 +1345,14 @@ export default function App() {
                     ) : (
                         <div className="space-y-3 mb-6">
                             {stationedOfficers.map(o => (
-                                <div key={o.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded">
+                                <div key={o.id} className="flex flex-col gap-3 rounded border border-slate-700 bg-black/40 p-3 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="mt-1 text-xs text-slate-400">政:{o.pol} 魅:{o.cha} 统:{o.cmd}</div>
                                         <div className="mt-1 text-xs text-slate-500">定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}</div>
                                         <div className="mt-1 text-xs text-slate-500">与主公关系：{getOfficerRelationLabel(getOfficerRelationScore(playerRuler, o))}</div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                         <button 
                                             onClick={() => personnelAction('appointGovernor', o.id)}
                                             disabled={currentCityProfile.governor?.id === o.id}
@@ -1319,7 +1383,7 @@ export default function App() {
                     ) : (
                         <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                             {myOfficers.map(o => (
-                                <div key={o.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded">
+                                <div key={o.id} className="flex flex-col gap-3 rounded border border-slate-700 bg-black/40 p-3 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <div className="text-amber-100 font-bold flex items-center">
                                             {o.name} 
@@ -1340,7 +1404,7 @@ export default function App() {
                                             驻守：{cities[o.cityId]?.name ?? '未配置'}
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                         <button 
                                             onClick={() => personnelAction('dispatch', o.id)}
                                             disabled={o.cityId === activeCityId}
@@ -1491,12 +1555,13 @@ export default function App() {
             {renderHeader()}
             
             <div className="flex flex-1 overflow-hidden lg:px-6 lg:py-6">
-                <div className="flex flex-1 overflow-hidden lg:mx-auto lg:max-w-7xl lg:gap-6">
+                <div className="flex flex-1 flex-col overflow-hidden lg:mx-auto lg:max-w-7xl lg:flex-row lg:gap-6">
                     {renderNav()}
                     
                     <main className="flex-1 flex flex-col relative overflow-y-auto lg:rounded-2xl lg:border lg:border-amber-900/30 lg:bg-slate-900/60 lg:shadow-2xl lg:backdrop-blur-sm">
+                        {renderMobileCommandBar()}
                         {/* View Switcher */}
-                        <div className="flex-1 pb-4 lg:pb-6">
+                        <div className="flex-1 pb-6 lg:pb-6">
                             {activeTab === 'HOME' && renderHome()}
                             {activeTab === 'COUNCIL' && renderCouncil()}
                             {activeTab === 'ARMY' && renderArmy()}
@@ -1511,9 +1576,11 @@ export default function App() {
             </div>
 
             {/* Bottom Log */}
-            <div className="lg:hidden">
-                {renderLog()}
+            <div className="border-t border-amber-900/20 bg-slate-950/70 lg:hidden">
+                <div className="px-4 py-2 text-xs font-bold tracking-[0.2em] text-amber-400">军情日志</div>
+                {renderLog('max-h-44 overflow-y-auto px-4 pb-4 font-mono text-xs')}
             </div>
+            {renderMobileNav()}
         </div>
     );
 }
