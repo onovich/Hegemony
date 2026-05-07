@@ -20,6 +20,18 @@ const COMMANDER_ROLE_WEIGHTS = {
 
 function getAiStrategyProfile(faction = {}) {
   return {
+    governorWeightBias: {
+      pol: 1,
+      int: 1,
+      cha: 1,
+      cmd: 1,
+    },
+    commanderWeightBias: {
+      cmd: 1,
+      cha: 1,
+      int: 1,
+      pol: 1,
+    },
     growthMultipliers: {
       troops: 1,
       agriculture: 1,
@@ -28,6 +40,20 @@ function getAiStrategyProfile(faction = {}) {
       morale: 1,
     },
     ...faction.aiStrategyProfile,
+    governorWeightBias: {
+      pol: 1,
+      int: 1,
+      cha: 1,
+      cmd: 1,
+      ...(faction.aiStrategyProfile?.governorWeightBias ?? {}),
+    },
+    commanderWeightBias: {
+      cmd: 1,
+      cha: 1,
+      int: 1,
+      pol: 1,
+      ...(faction.aiStrategyProfile?.commanderWeightBias ?? {}),
+    },
     growthMultipliers: {
       troops: 1,
       agriculture: 1,
@@ -41,6 +67,12 @@ function getAiStrategyProfile(faction = {}) {
 
 function getRoleWeights(role, mapping) {
   return mapping[role] ?? mapping.capital;
+}
+
+function applyWeightBias(weights, bias) {
+  return Object.fromEntries(
+    Object.entries(weights).map(([stat, weight]) => [stat, weight * (bias[stat] ?? 1)])
+  );
 }
 
 function scoreOfficer(officer, weights) {
@@ -99,8 +131,16 @@ export function resolveAiFactionCityManagement({ factionId, factionName, faction
       officer.cityId === city.id
     ));
 
-    const nextGovernorId = pickBestOfficerId(stationedOfficers, getRoleWeights(city.role, GOVERNOR_ROLE_WEIGHTS));
-    const nextCommanderId = pickBestOfficerId(stationedOfficers, getRoleWeights(city.role, COMMANDER_ROLE_WEIGHTS));
+    const governorWeights = applyWeightBias(
+      getRoleWeights(city.role, GOVERNOR_ROLE_WEIGHTS),
+      strategyProfile.governorWeightBias
+    );
+    const commanderWeights = applyWeightBias(
+      getRoleWeights(city.role, COMMANDER_ROLE_WEIGHTS),
+      strategyProfile.commanderWeightBias
+    );
+    const nextGovernorId = pickBestOfficerId(stationedOfficers, governorWeights);
+    const nextCommanderId = pickBestOfficerId(stationedOfficers, commanderWeights);
     const economyProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextGovernorId, 'governor');
     const militaryProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextCommanderId, 'commander');
     const relationshipProfile = applyCityLeadershipRelationshipEffects({

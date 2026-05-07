@@ -91,6 +91,18 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 0.88,
       attackMinMoraleMultiplier: 0.92,
       attackPowerAdvantageRatioMultiplier: 0.94,
+      governorWeightBias: {
+        pol: 1,
+        int: 1.05,
+        cha: 0.9,
+        cmd: 1.15,
+      },
+      commanderWeightBias: {
+        cmd: 1.2,
+        cha: 0.95,
+        int: 0.95,
+        pol: 0.9,
+      },
       growthMultipliers: {
         troops: 1.15,
         agriculture: 0.95,
@@ -119,6 +131,18 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 1.08,
       attackMinMoraleMultiplier: 1.05,
       attackPowerAdvantageRatioMultiplier: 1.08,
+      governorWeightBias: {
+        pol: 1.15,
+        int: 1,
+        cha: 1.15,
+        cmd: 0.85,
+      },
+      commanderWeightBias: {
+        cmd: 1,
+        cha: 1.1,
+        int: 1,
+        pol: 0.9,
+      },
       growthMultipliers: {
         troops: 0.95,
         agriculture: 1.15,
@@ -147,6 +171,18 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 0.98,
       attackMinMoraleMultiplier: 0.98,
       attackPowerAdvantageRatioMultiplier: 1,
+      governorWeightBias: {
+        pol: 1,
+        int: 1.05,
+        cha: 1.15,
+        cmd: 0.9,
+      },
+      commanderWeightBias: {
+        cmd: 1.05,
+        cha: 1.1,
+        int: 1,
+        pol: 0.9,
+      },
       growthMultipliers: {
         troops: 1,
         agriculture: 0.98,
