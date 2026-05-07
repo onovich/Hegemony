@@ -15,6 +15,7 @@ import {
     MAX_AP,
 } from '../src/data/gameConfig.js';
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
+import { establishCeasefire } from '../src/logic/engine/diplomacyStatusResolution.js';
 import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
 import {
     advanceTurnEconomy,
@@ -482,6 +483,14 @@ export default function App() {
             addLog(`武将们操练兵马，军队士气提升了 ${moraleBoost}！`);
         }
         else if (action === 'attack' && targetCityId) {
+            const targetCity = cities[targetCityId];
+            const targetFaction = targetCity.owner;
+            const ceasefireTurns = factions[targetFaction].ceasefireTurns ?? 0;
+            if (ceasefireTurns > 0) {
+                addLog(`与【${factions[targetFaction].name}】仍处于停战期（剩余 ${ceasefireTurns} 个月），当前不可主动出兵。`, 'error');
+                return;
+            }
+
             const costFood = calculateAttackFoodCost(myCity.troops);
             if (resources.food < costFood) {
                 addLog(`大军出征需要 ${costFood} 粮草，当前粮草不足！`, 'error');
@@ -490,8 +499,6 @@ export default function App() {
             if (!costAp(GAME_BALANCE.military.attackApCost)) return; // Attack costs 2 AP
 
             setResources(prev => ({ ...prev, food: prev.food - costFood }));
-            const targetCity = cities[targetCityId];
-            const targetFaction = targetCity.owner;
             const enemyOfficers = getCityOfficers(targetCityId, targetFaction);
             const enemyStats = getEffectiveFactionStats(enemyOfficers);
             const currentRelation = factions[targetFaction].relation ?? 0;
@@ -663,10 +670,22 @@ export default function App() {
             setResources(prev => ({ ...prev, gold: prev.gold - cost }));
             const relationBoost = getGiftRelationBoost(stats.pol);
             const nextRelation = Math.min(100, targetFaction.relation + relationBoost);
-            setFactions(prev => ({ ...prev, [factionId]: { ...prev[factionId], relation: nextRelation } }));
+            let nextFactionState = {
+                ...targetFaction,
+                relation: nextRelation,
+            };
+            const previousCeasefireTurns = targetFaction.ceasefireTurns ?? 0;
+
+            if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+                nextFactionState = establishCeasefire(nextFactionState);
+            }
+
+            setFactions(prev => ({ ...prev, [factionId]: nextFactionState }));
             addLog(`派遣使者向【${targetFaction.name}】献上厚礼，双方友好度提升了 ${relationBoost}。`);
             if (targetFaction.relation < GAME_BALANCE.diplomacy.tradeThreshold && nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
-                addLog(`【${targetFaction.name}】已进入通商友邦状态，下月起可获得稳定贸易收益。`, 'success');
+                addLog(`【${targetFaction.name}】已进入通商友邦状态，并约定停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'success');
+            } else if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold && previousCeasefireTurns < GAME_BALANCE.diplomacy.ceasefireTurns) {
+                addLog(`与【${targetFaction.name}】的停战约定刷新为 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'system');
             }
         }
         else if (action === 'alienate') {
@@ -1081,6 +1100,7 @@ export default function App() {
                         <div className="space-y-3">
                             {enemyCities.map(city => {
                                 const faction = factions[city.owner];
+                                const isCeasefireActive = (faction.ceasefireTurns ?? 0) > 0;
                                 return (
                                     <div key={city.id} className="flex justify-between items-center p-3 bg-black/40 border border-slate-700 rounded hover:border-red-900/50 transition">
                                         <div>
@@ -1091,10 +1111,12 @@ export default function App() {
                                             <div className="text-xs text-slate-400 mt-1">兵力: {city.troops} | 城防: {city.defense} | 士气: {city.morale}</div>
                                         </div>
                                         <button 
+                                            disabled={isCeasefireActive}
                                             onClick={() => militaryAction('attack', city.id)} 
-                                            className="bg-red-800 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-bold shadow-lg transition"
+                                            title={isCeasefireActive ? `停战剩余 ${faction.ceasefireTurns} 个月` : '出兵攻城'}
+                                            className={`px-4 py-2 rounded text-sm font-bold shadow-lg transition ${isCeasefireActive ? 'cursor-not-allowed bg-slate-700 text-slate-400' : 'bg-red-800 hover:bg-red-600 text-white'}`}
                                         >
-                                            出兵
+                                            {isCeasefireActive ? '停战中' : '出兵'}
                                         </button>
                                     </div>
                                 );
@@ -1307,7 +1329,7 @@ export default function App() {
                             
                             <div className="mb-6 flex-grow">
                                 <div className="mb-3 rounded border border-slate-700 bg-black/20 px-3 py-2 text-xs text-slate-300">
-                                    关系状态：{getDiplomacyStateLabel(faction.relation)}
+                                    关系状态：{getDiplomacyStateLabel(faction.relation, faction.ceasefireTurns ?? 0)}
                                 </div>
                                 <div className="text-sm text-slate-400 mb-1">双方友好度</div>
                                 <div className="w-full bg-slate-900 rounded-full h-2.5 mb-2 border border-slate-700">
@@ -1315,7 +1337,9 @@ export default function App() {
                                 </div>
                                 <div className="text-right text-xs text-slate-500">{faction.relation} / 100</div>
                                 <div className="mt-2 text-xs text-slate-400">
-                                    {faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold
+                                    {(faction.ceasefireTurns ?? 0) > 0
+                                        ? `停战剩余 ${faction.ceasefireTurns} 个月，期间双方不可主动开战。`
+                                        : faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold
                                         ? '每月可获得通商收益。'
                                         : faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold
                                             ? '每月可能触发边境施压，压低我方城池士气。'

@@ -1,4 +1,5 @@
 import { advanceFactionEconomy } from './gameBalance.js';
+import { tickDiplomacyStatuses } from './diplomacyStatusResolution.js';
 import { resolvePlayerMonthlyTurn } from './playerTurnResolution.js';
 import { resolveAiStagePlans } from './aiStagePlanning.js';
 import { resolveAiStageEvents } from './aiStageEvents.js';
@@ -96,6 +97,9 @@ export function resolveMonthlyTurnFlow({
   });
 
   logs.push(...aiBattleResult.logs);
+
+  const diplomacyStatusResult = tickDiplomacyStatuses(nextFactions);
+  logs.push(...diplomacyStatusResult.logs);
 
   const remainingPlayerCities = Object.values(nextCities).filter(city => city.owner === 'player');
   const enemyCities = Object.values(nextCities).filter(city => city.owner !== 'player');

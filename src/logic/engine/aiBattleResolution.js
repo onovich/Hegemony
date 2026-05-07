@@ -87,6 +87,11 @@ export function resolveAiMonthlyBattles({
     }
 
     const relation = factions[factionId]?.relation ?? 0;
+    const ceasefireTurns = factions[factionId]?.ceasefireTurns ?? 0;
+    if (ceasefireTurns > 0) {
+      return;
+    }
+
     const strategyProfile = getAiStrategyProfile(factions[factionId] ?? {});
     const goalBattleModifiers = getGoalBattleModifiers(aiPlans?.[factionId]);
     if (!shouldAiAttack({

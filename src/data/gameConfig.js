@@ -77,6 +77,7 @@ export const INITIAL_FACTIONS = {
     name: '曹操军',
     ruler: 'caocao',
     relation: 40,
+    ceasefireTurns: 0,
     color: 'bg-red-700',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 0.65,
@@ -122,6 +123,7 @@ export const INITIAL_FACTIONS = {
     name: '刘备军',
     ruler: 'liubei',
     relation: 60,
+    ceasefireTurns: 0,
     color: 'bg-green-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.4,
@@ -167,6 +169,7 @@ export const INITIAL_FACTIONS = {
     name: '孙权军',
     ruler: 'sunquan',
     relation: 50,
+    ceasefireTurns: 0,
     color: 'bg-orange-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.05,
@@ -431,6 +434,7 @@ export const GAME_BALANCE = {
   },
   diplomacy: {
     giftGoldCost: 500,
+    ceasefireTurns: 2,
     giftPolFactor: 0.12,
     giftMin: 6,
     giftMax: 12,

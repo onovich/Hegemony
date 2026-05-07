@@ -312,7 +312,11 @@ export function getGiftRelationBoost(pol) {
   );
 }
 
-export function getDiplomacyStateLabel(relation) {
+export function getDiplomacyStateLabel(relation, ceasefireTurns = 0) {
+  if (ceasefireTurns > 0) {
+    return '停战修盟';
+  }
+
   if (relation >= GAME_BALANCE.diplomacy.tradeThreshold) {
     return '通商友邦';
   }

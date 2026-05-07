@@ -1,4 +1,5 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
+import { establishCeasefire } from './diplomacyStatusResolution.js';
 import {
   getAlienateLoyaltyDrop,
   getAlienateSuccessChance,
@@ -60,6 +61,7 @@ export function resolveAiMonthlyDiplomacy({
 
       const factionOfficers = getFactionOfficersFromState(faction.id);
       const relation = nextFactions[faction.id].relation ?? 50;
+      const ceasefireTurns = nextFactions[faction.id].ceasefireTurns ?? 0;
       const diplomacyProfile = getAiDiplomacyProfile(faction);
       const goalDiplomacyModifiers = getGoalDiplomacyModifiers(aiPlans?.[faction.id]);
       const factionStats = getEffectiveFactionStats(factionOfficers);
@@ -69,6 +71,7 @@ export function resolveAiMonthlyDiplomacy({
         : true;
 
       if (
+        ceasefireTurns <= 0 &&
         relation <= GAME_BALANCE.diplomacy.hostileThreshold &&
         playerCourtOfficers.length > 0 &&
         chance(GAME_BALANCE.ai.diplomacy.alienateChance * diplomacyProfile.alienateChanceMultiplier * goalDiplomacyModifiers.alienateChanceMultiplier)
@@ -95,6 +98,7 @@ export function resolveAiMonthlyDiplomacy({
       }
 
       if (
+        ceasefireTurns <= 0 &&
         isMilitarilyStronger &&
         relation > GAME_BALANCE.diplomacy.hostileThreshold &&
         chance(GAME_BALANCE.ai.diplomacy.pressureChance * diplomacyProfile.pressureChanceMultiplier * goalDiplomacyModifiers.pressureChanceMultiplier)
@@ -130,10 +134,16 @@ export function resolveAiMonthlyDiplomacy({
           )
         );
         const nextRelation = Math.min(100, relation + relationBoost);
-        nextFactions[faction.id] = {
+        let updatedFaction = {
           ...nextFactions[faction.id],
           relation: nextRelation,
         };
+
+        if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
+          updatedFaction = establishCeasefire(updatedFaction);
+        }
+
+        nextFactions[faction.id] = updatedFaction;
         logs.push({
           text: `【${faction.name}】遣使修好，双方关系提升 ${relationBoost}。`,
           type: 'success',
@@ -141,7 +151,7 @@ export function resolveAiMonthlyDiplomacy({
 
         if (relation < GAME_BALANCE.diplomacy.tradeThreshold && nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
           logs.push({
-            text: `【${faction.name}】与我方恢复通商友邦关系，下月起贸易往来将更加稳定。`,
+            text: `【${faction.name}】与我方恢复通商友邦关系，并约定停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`,
             type: 'system',
           });
         }
