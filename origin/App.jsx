@@ -204,7 +204,11 @@ export default function App() {
 
         const myCities = getFactionCitiesFromState('player');
         const myOfficers = getFactionOfficersFromState('player');
-        const economy = advanceFactionEconomy({ cities: myCities, officerCount: myOfficers.length });
+        const economy = advanceFactionEconomy({
+            cities: myCities,
+            officerCount: myOfficers.length,
+            getCityStats: (city) => getEffectiveFactionStats(getFactionOfficersFromState('player', city.id)),
+        });
         const citySummary = myCities.map(city => `${city.name}[${getCityRoleLabel(city)}](农${city.agriculture}/商${city.commerce}/兵${city.troops})`).join('，');
         const otherFactions = Object.values(factions).filter(faction => faction.id !== 'player');
         
@@ -1007,6 +1011,9 @@ export default function App() {
         const currentCityOfficers = getCurrentCityOfficers();
         const totalStats = getTotalStats();
         const currentCityStats = getCurrentCityStats();
+        const currentCityEconomy = myCity
+            ? advanceTurnEconomy({ city: myCity, officerCount: 0, cityStats: currentCityStats })
+            : null;
         const totalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
         const totalAgriculture = playerCities.reduce((sum, city) => sum + city.agriculture, 0);
         const totalCommerce = playerCities.reduce((sum, city) => sum + city.commerce, 0);
@@ -1026,12 +1033,17 @@ export default function App() {
                         <div><span className="text-slate-500">士气：</span>{myCity.morale} / 100</div>
                         <div><span className="text-slate-500">驻守武将：</span>{currentCityOfficers.length}</div>
                         <div><span className="text-slate-500">当前城有效统率：</span>{currentCityStats.cmd}</div>
+                        <div><span className="text-slate-500">预计月资金：</span>{currentCityEconomy?.goldIncome ?? 0}</div>
+                        <div><span className="text-slate-500">预计月粮草：</span>{currentCityEconomy?.foodIncome ?? 0}</div>
                     </div>
                     {playerCities.length > 1 && (
                         <div className="mt-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                             已占领 {playerCities.length} 座城池，内政、征兵、训练与出兵都以当前选中城池执行。
                         </div>
                     )}
+                    <div className="mt-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                        驻守武将的政治与魅力会提高本城月度经营收益，因此调度文官到关键城市能直接改善财政与粮储。
+                    </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                         {currentCityOfficers.length === 0 ? (
                             <span className="text-xs text-red-400">当前城暂无驻守武将</span>
@@ -1089,6 +1101,12 @@ export default function App() {
                     <h2 className="text-xl font-bold text-amber-500 mb-4 border-b border-amber-900/50 pb-2">城池总览</h2>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {playerCities.map(city => (
+                            (() => {
+                                const stationedOfficers = getCityOfficers(city.id);
+                                const stationedStats = getEffectiveFactionStats(stationedOfficers);
+                                const projectedEconomy = advanceTurnEconomy({ city, officerCount: 0, cityStats: stationedStats });
+
+                                return (
                             <button
                                 key={city.id}
                                 type="button"
@@ -1106,9 +1124,14 @@ export default function App() {
                                     <div>农业：{city.agriculture}</div>
                                     <div>商业：{city.commerce}</div>
                                     <div>城防：{city.defense}</div>
+                                    <div>驻守：{stationedOfficers.length} 人</div>
+                                    <div>月资金：{projectedEconomy.goldIncome}</div>
+                                    <div>月粮草：{projectedEconomy.foodIncome}</div>
                                     <div>用途：{city.role === 'military' ? '便于扩军' : city.role === 'commerce' ? '偏重金钱' : city.role === 'agriculture' ? '偏重粮草' : '经营均衡'}</div>
                                 </div>
                             </button>
+                                );
+                            })()
                         ))}
                     </div>
                 </div>

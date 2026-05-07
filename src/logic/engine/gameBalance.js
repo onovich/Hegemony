@@ -89,21 +89,31 @@ export function getEffectiveFactionStats(officers) {
   };
 }
 
-export function advanceTurnEconomy({ city, officerCount }) {
+export function advanceTurnEconomy({ city, officerCount, cityStats = { pol: 0, cha: 0 } }) {
   const role = getCityRoleConfig(city);
+  const governanceGoldBonus = Math.floor(
+    cityStats.pol * GAME_BALANCE.economy.governanceGoldPolFactor +
+      cityStats.cha * GAME_BALANCE.economy.governanceGoldChaFactor
+  );
+  const governanceFoodBonus = Math.floor(
+    cityStats.pol * GAME_BALANCE.economy.governanceFoodPolFactor +
+      cityStats.cha * GAME_BALANCE.economy.governanceFoodChaFactor
+  );
 
   return {
-    goldIncome: Math.floor(city.commerce * GAME_BALANCE.economy.goldPerCommerce * role.goldIncomeMultiplier),
-    foodIncome: Math.floor(city.agriculture * GAME_BALANCE.economy.foodPerAgriculture * role.foodIncomeMultiplier),
+    goldIncome: Math.floor(city.commerce * GAME_BALANCE.economy.goldPerCommerce * role.goldIncomeMultiplier) + governanceGoldBonus,
+    foodIncome: Math.floor(city.agriculture * GAME_BALANCE.economy.foodPerAgriculture * role.foodIncomeMultiplier) + governanceFoodBonus,
     troopUpkeep: Math.floor(city.troops * GAME_BALANCE.economy.troopFoodUpkeep),
     officerSalary: officerCount * GAME_BALANCE.economy.officerSalaryGold,
+    governanceGoldBonus,
+    governanceFoodBonus,
   };
 }
 
-export function advanceFactionEconomy({ cities, officerCount }) {
+export function advanceFactionEconomy({ cities, officerCount, getCityStats = () => ({ pol: 0, cha: 0 }) }) {
   const totals = cities.reduce(
     (accumulator, city) => {
-      const economy = advanceTurnEconomy({ city, officerCount: 0 });
+      const economy = advanceTurnEconomy({ city, officerCount: 0, cityStats: getCityStats(city) });
 
       return {
         goldIncome: accumulator.goldIncome + economy.goldIncome,
