@@ -15,11 +15,11 @@ import {
     MAX_AP,
 } from '../src/data/gameConfig.js';
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
-import { establishCeasefire, escalateHostility } from '../src/logic/engine/diplomacyStatusResolution.js';
+import { escalateHostility } from '../src/logic/engine/diplomacyStatusResolution.js';
 import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
+import { resolvePlayerDiplomacyAction } from '../src/logic/engine/playerDiplomacyResolution.js';
 import {
     advanceTurnEconomy,
-    getAidPackage,
     calculateAttackFoodCost,
     calculateBattlePower,
     calculateDefeatLosses,
@@ -29,17 +29,12 @@ import {
     calculateRewardBoost,
     calculateTrainingBoost,
     calculateVictoryLosses,
-    getAlienateLoyaltyDrop,
-    getAlienateSuccessChance,
     getCapturedCityTroops,
     getCityRoleLabel,
     getDiplomacyStateLabel,
     getEffectiveFactionStats,
     getExplorationBonus,
-    getGiftRelationBoost,
     getOfficerContributionMultiplier,
-    getPersuadeSuccessChance,
-    getPressureRelationDrop,
 } from '../src/logic/engine/gameBalance.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 import {
@@ -660,191 +655,27 @@ export default function App() {
     // 6. Diplomacy (外交)
     const diplomacyAction = (action, factionId) => {
         if (!costAp(1)) return;
-        const targetFaction = factions[factionId];
-        const stats = getTotalStats();
+        const resolution = resolvePlayerDiplomacyAction({
+            action,
+            factionId,
+            factions,
+            officers,
+            cities,
+            resources,
+            stats: getTotalStats(),
+            activeCityId,
+            activeCityName: cities[activeCityId]?.name ?? '未知城池',
+        });
 
-        if (action === 'gift') {
-            const cost = GAME_BALANCE.diplomacy.giftGoldCost;
-            if (resources.gold < cost) {
-                addLog(`赠礼需要 ${cost} 金，资金不足！`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-            setResources(prev => ({ ...prev, gold: prev.gold - cost }));
-            const relationBoost = getGiftRelationBoost(stats.pol);
-            const nextRelation = Math.min(100, targetFaction.relation + relationBoost);
-            let nextFactionState = {
-                ...targetFaction,
-                relation: nextRelation,
-            };
-            const previousCeasefireTurns = targetFaction.ceasefireTurns ?? 0;
-
-            if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
-                nextFactionState = establishCeasefire(nextFactionState);
-            }
-
-            setFactions(prev => ({ ...prev, [factionId]: nextFactionState }));
-            addLog(`派遣使者向【${targetFaction.name}】献上厚礼，双方友好度提升了 ${relationBoost}。`);
-            if (targetFaction.relation < GAME_BALANCE.diplomacy.tradeThreshold && nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
-                addLog(`【${targetFaction.name}】已进入通商友邦状态，并约定停战 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'success');
-            } else if (nextRelation >= GAME_BALANCE.diplomacy.tradeThreshold && previousCeasefireTurns < GAME_BALANCE.diplomacy.ceasefireTurns) {
-                addLog(`与【${targetFaction.name}】的停战约定刷新为 ${GAME_BALANCE.diplomacy.ceasefireTurns} 个月。`, 'system');
-            }
+        if (resolution.refundAp) {
+            setAp(prev => prev + 1);
         }
-        else if (action === 'aid') {
-            if (targetFaction.hostilityTurns > 0) {
-                addLog(`【${targetFaction.name}】正与我方敌意升温，当前不可能回应求援。`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
 
-            if (targetFaction.relation < GAME_BALANCE.diplomacy.tradeThreshold) {
-                addLog(`只有通商友邦才会出手相助，当前与【${targetFaction.name}】的关系还不够稳固。`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-
-            const aidPackage = getAidPackage(stats.pol, stats.cha);
-            const nextRelation = Math.max(0, targetFaction.relation - aidPackage.relationCost);
-
-            setResources(prev => ({
-                ...prev,
-                gold: prev.gold + aidPackage.gold,
-                food: prev.food + aidPackage.food,
-            }));
-            setFactions(prev => ({
-                ...prev,
-                [factionId]: {
-                    ...prev[factionId],
-                    relation: nextRelation,
-                },
-            }));
-
-            addLog(`你向【${targetFaction.name}】陈情求援，对方拨来 ${aidPackage.gold} 金、${aidPackage.food} 粮以资军政。`, 'success');
-            addLog(`这次求援消耗了双方 ${aidPackage.relationCost} 点交情。`, 'system');
-            if (targetFaction.relation >= GAME_BALANCE.diplomacy.tradeThreshold && nextRelation < GAME_BALANCE.diplomacy.tradeThreshold) {
-                addLog(`【${targetFaction.name}】认为我方索求过繁，双方暂时退出通商友邦状态。`, 'warning');
-            }
-        }
-        else if (action === 'pressure') {
-            const cost = GAME_BALANCE.diplomacy.pressureGoldCost;
-            if (resources.gold < cost) {
-                addLog(`施压需要 ${cost} 金用于军使、边备与调度，资金不足！`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-
-            const relationDrop = getPressureRelationDrop(stats.cmd, stats.cha);
-            const nextRelation = Math.max(0, targetFaction.relation - relationDrop);
-            const brokeCeasefire = (targetFaction.ceasefireTurns ?? 0) > 0;
-
-            setResources(prev => ({
-                ...prev,
-                gold: prev.gold - cost,
-                reputation: brokeCeasefire
-                    ? Math.max(0, prev.reputation - GAME_BALANCE.diplomacy.ceasefireBreakReputationPenalty)
-                    : prev.reputation,
-            }));
-            setFactions(prev => ({
-                ...prev,
-                [factionId]: escalateHostility({
-                    ...prev[factionId],
-                    relation: nextRelation,
-                }),
-            }));
-
-            addLog(`你向【${targetFaction.name}】发出严词军书并整备边军，双方关系下降了 ${relationDrop}。`, 'warning');
-            if (brokeCeasefire) {
-                addLog(`你主动撕毁了与【${targetFaction.name}】的停战约定，名望下降 ${GAME_BALANCE.diplomacy.ceasefireBreakReputationPenalty}。`, 'error');
-            }
-        }
-        else if (action === 'persuade') {
-            const cost = GAME_BALANCE.diplomacy.persuadeGoldCost;
-            if (resources.gold < cost) {
-                addLog(`劝降需要 ${cost} 金用于密使、馈赠与安置，资金不足！`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-
-            const targetOfficer = [...officers]
-                .filter(o => o.faction === factionId && o.state === 'active' && o.id !== targetFaction.ruler)
-                .sort((left, right) => (left.loyalty - right.loyalty) || (left.int - right.int))[0];
-
-            if (!targetOfficer) {
-                addLog(`密探回报：【${targetFaction.name}】当前没有可被单独策反的现役将领。`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-
-            setResources(prev => ({ ...prev, gold: prev.gold - cost }));
-            setFactions(prev => ({
-                ...prev,
-                [factionId]: escalateHostility(prev[factionId], GAME_BALANCE.diplomacy.covertHostilityTurns),
-            }));
-
-            const successChance = getPersuadeSuccessChance({
-                playerCha: stats.cha,
-                playerInt: stats.int,
-                targetInt: targetOfficer.int,
-                targetLoyalty: targetOfficer.loyalty,
-                hostilityBonus: (targetFaction.hostilityTurns ?? 0) > 0 || targetFaction.relation <= GAME_BALANCE.diplomacy.hostileThreshold
-                    ? GAME_BALANCE.diplomacy.persuadeHostilityBonus
-                    : 0,
-            });
-
-            if (chance(successChance)) {
-                setCities(prev => Object.fromEntries(
-                    Object.entries(prev).map(([cityId, city]) => ([
-                        cityId,
-                        {
-                            ...city,
-                            governorId: city.governorId === targetOfficer.id ? null : city.governorId,
-                            commanderId: city.commanderId === targetOfficer.id ? null : city.commanderId,
-                        },
-                    ]))
-                ));
-                setOfficers(prev => prev.map(o => o.id === targetOfficer.id
-                    ? {
-                        ...o,
-                        faction: 'player',
-                        cityId: activeCityId,
-                        state: 'active',
-                        loyalty: GAME_BALANCE.diplomacy.persuadeJoinLoyalty,
-                    }
-                    : o));
-                addLog(`密使成功说动【${targetFaction.name}】武将【${targetOfficer.name}】倒戈来投，现已前往【${cities[activeCityId].name}】听命。`, 'success');
-            } else {
-                addLog(`劝降未成！【${targetOfficer.name}】暂未动摇，只是让【${targetFaction.name}】对我方更加戒备。`, 'warning');
-            }
-        }
-        else if (action === 'alienate') {
-            const cost = GAME_BALANCE.diplomacy.alienateGoldCost;
-            if (resources.gold < cost) {
-                addLog(`散布流言需要 ${cost} 金作为活动经费，资金不足！`, 'error');
-                setAp(prev => prev + 1);
-                return;
-            }
-            setResources(prev => ({ ...prev, gold: prev.gold - cost }));
-            setFactions(prev => ({
-                ...prev,
-                [factionId]: escalateHostility(prev[factionId], GAME_BALANCE.diplomacy.covertHostilityTurns),
-            }));
-            // Lower loyalty of a random officer in that faction
-            const enemyOfficers = officers.filter(o => o.faction === factionId);
-            if (enemyOfficers.length > 0) {
-                const targetOfficer = enemyOfficers[randInt(0, enemyOfficers.length - 1)];
-                // Success based on Player Int vs Target Int
-                if (chance(getAlienateSuccessChance(stats.int, targetOfficer.int))) {
-                    const loyaltyDrop = getAlienateLoyaltyDrop();
-                    setOfficers(prev => prev.map(o => o.id === targetOfficer.id ? { ...o, loyalty: Math.max(0, o.loyalty - loyaltyDrop) } : o));
-                    addLog(`离间计成功！散布流言使【${targetFaction.name}】的武将【${targetOfficer.name}】心生疑隙，忠诚下降！`, 'success');
-                } else {
-                    addLog(`离间计失败！【${targetFaction.name}】识破了我们的流言蜚语。`);
-                }
-            } else {
-                 addLog(`细作回报：【${targetFaction.name}】麾下暂无知名武将可供离间。`);
-            }
-        }
+        setResources(resolution.resources);
+        setFactions(resolution.factions);
+        setOfficers(resolution.officers);
+        setCities(resolution.cities);
+        resolution.logs.forEach(log => addLog(log.text, log.type));
     };
 
 
