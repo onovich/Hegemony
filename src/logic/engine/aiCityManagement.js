@@ -1,5 +1,5 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
-import { getDirectedFactionStats } from './gameBalance.js';
+import { getDirectedStatsWithSpecialty } from './officerSpecialties.js';
 
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -77,14 +77,16 @@ export function resolveAiFactionCityManagement({ factionId, factionName, cities,
 
     const nextGovernorId = pickBestOfficerId(stationedOfficers, getRoleWeights(city.role, GOVERNOR_ROLE_WEIGHTS));
     const nextCommanderId = pickBestOfficerId(stationedOfficers, getRoleWeights(city.role, COMMANDER_ROLE_WEIGHTS));
-    const economyStats = getDirectedFactionStats(stationedOfficers, nextGovernorId);
-    const militaryStats = getDirectedFactionStats(stationedOfficers, nextCommanderId);
+    const economyProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextGovernorId, 'governor');
+    const militaryProfile = getDirectedStatsWithSpecialty(stationedOfficers, nextCommanderId, 'commander');
     const profile = {
       stationedOfficers,
-      economyStats,
-      militaryStats,
+      economyStats: economyProfile.stats,
+      militaryStats: militaryProfile.stats,
       governor: stationedOfficers.find(officer => officer.id === nextGovernorId) ?? null,
       commander: stationedOfficers.find(officer => officer.id === nextCommanderId) ?? null,
+      governorSpecialty: economyProfile.activeSpecialty,
+      commanderSpecialty: militaryProfile.activeSpecialty,
     };
     const growth = calculateAiCityGrowth(city, profile);
 
@@ -102,7 +104,7 @@ export function resolveAiFactionCityManagement({ factionId, factionName, cities,
     if (nextGovernorId && city.governorId !== nextGovernorId) {
       const governor = stationedOfficers.find(officer => officer.id === nextGovernorId);
       logs.push({
-        text: `【${factionName}】任命【${governor?.name ?? '无名官吏'}】为【${city.name}】太守。`,
+        text: `【${factionName}】任命【${governor?.name ?? '无名官吏'}】为【${city.name}】太守，激活特技【${profile.governorSpecialty?.name ?? '无'}】。`,
         type: 'system',
       });
     }
@@ -110,7 +112,7 @@ export function resolveAiFactionCityManagement({ factionId, factionName, cities,
     if (nextCommanderId && city.commanderId !== nextCommanderId) {
       const commander = stationedOfficers.find(officer => officer.id === nextCommanderId);
       logs.push({
-        text: `【${factionName}】任命【${commander?.name ?? '无名将领'}】为【${city.name}】主将。`,
+        text: `【${factionName}】任命【${commander?.name ?? '无名将领'}】为【${city.name}】主将，激活特技【${profile.commanderSpecialty?.name ?? '无'}】。`,
         type: 'warning',
       });
     }

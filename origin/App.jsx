@@ -35,7 +35,6 @@ import {
     getCapturedCityTroops,
     getCityRoleLabel,
     getDiplomacyStateLabel,
-    getDirectedFactionStats,
     getTradeIncomeBonus,
     getBorderPressureMoraleLoss,
     getEffectiveFactionStats,
@@ -51,6 +50,7 @@ import {
     shouldOfficerEmbezzle,
 } from '../src/logic/engine/gameBalance.js';
 import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
+import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
 
 const TAB_ITEMS = [
     { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
@@ -132,6 +132,8 @@ export default function App() {
                 stationedOfficers: [],
                 governor: null,
                 commander: null,
+                governorSpecialty: null,
+                commanderSpecialty: null,
                 economyStats: EMPTY_STATS,
                 militaryStats: EMPTY_STATS,
             };
@@ -144,13 +146,17 @@ export default function App() {
         ));
         const governor = stationedOfficers.find(officer => officer.id === city.governorId) ?? null;
         const commander = stationedOfficers.find(officer => officer.id === city.commanderId) ?? null;
+        const economyProfile = getDirectedStatsWithSpecialty(stationedOfficers, governor?.id ?? null, 'governor');
+        const militaryProfile = getDirectedStatsWithSpecialty(stationedOfficers, commander?.id ?? null, 'commander');
 
         return {
             stationedOfficers,
             governor,
             commander,
-            economyStats: getDirectedFactionStats(stationedOfficers, governor?.id ?? null),
-            militaryStats: getDirectedFactionStats(stationedOfficers, commander?.id ?? null),
+            governorSpecialty: economyProfile.activeSpecialty,
+            commanderSpecialty: militaryProfile.activeSpecialty,
+            economyStats: economyProfile.stats,
+            militaryStats: militaryProfile.stats,
         };
     };
     const getCurrentCityProfile = () => {
@@ -161,6 +167,8 @@ export default function App() {
                 stationedOfficers: [],
                 governor: null,
                 commander: null,
+                governorSpecialty: null,
+                commanderSpecialty: null,
                 economyStats: EMPTY_STATS,
                 militaryStats: EMPTY_STATS,
             };
@@ -1131,6 +1139,9 @@ export default function App() {
                     <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
                         所属地区：{myCity.region} · 城市特色：{myCity.specialty}
                     </div>
+                    <div className="mb-4 rounded-lg bg-black/20 p-3 text-xs text-slate-400">
+                        太守特技：{currentCityProfile.governorSpecialty?.name ?? '未激活'} · 主将特技：{currentCityProfile.commanderSpecialty?.name ?? '未激活'}
+                    </div>
                     <div className="grid grid-cols-2 gap-4 text-slate-300">
                         <div><span className="text-slate-500">太守：</span>{currentCityProfile.governor?.name ?? '未任命'}</div>
                         <div><span className="text-slate-500">驻军：</span>{myCity.troops}</div>
@@ -1229,6 +1240,7 @@ export default function App() {
                                 <div className="mt-2 text-xs text-amber-300">定位：{getCityRoleLabel(city)}</div>
                                 <div className="mt-1 text-xs text-slate-500">地区：{city.region} · 特色：{city.specialty}</div>
                                 <div className="mt-1 text-xs text-slate-400">太守：{cityProfile.governor?.name ?? '未任命'} | 主将：{cityProfile.commander?.name ?? '未任命'}</div>
+                                <div className="mt-1 text-xs text-slate-500">特技：{cityProfile.governorSpecialty?.shortLabel ?? '无'} / {cityProfile.commanderSpecialty?.shortLabel ?? '无'}</div>
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-300">
                                     <div>兵力：{city.troops}</div>
                                     <div>士气：{city.morale}</div>
@@ -1254,6 +1266,7 @@ export default function App() {
         <div className="p-6 max-w-2xl mx-auto">
             <h2 className="text-2xl font-bold text-amber-500 mb-6 text-center">主持内政</h2>
             <p className="mb-6 text-center text-xs text-slate-400">当前城由【{getCurrentCityProfile().governor?.name ?? '未任命'}】主持政务，太守会优先影响本城经营收益与开发效果。</p>
+            <p className="mb-6 text-center text-xs text-slate-500">当前激活特技：{getCurrentCityProfile().governorSpecialty?.name ?? '无'}。{getCurrentCityProfile().governorSpecialty?.description ?? '任命合适的太守后，可在此看到政务侧加成。'}</p>
             <div className="grid grid-cols-1 gap-6">
                 <div className="bg-slate-800/80 p-6 rounded-lg border border-amber-900/30 text-center hover:bg-slate-800 transition">
                     <Wheat className="w-12 h-12 text-green-500 mx-auto mb-3"/>
@@ -1299,6 +1312,7 @@ export default function App() {
                             <Flag className="w-6 h-6 mr-2"/> 军备筹建
                         </h2>
                         <p className="text-xs text-slate-400 mb-4">当前军务由【{myCity.name}】执行，主将为【{currentCityProfile.commander?.name ?? '未任命'}】，城市定位为【{getCityRoleLabel(myCity)}】。</p>
+                        <p className="text-xs text-slate-500 mb-4">当前激活特技：{currentCityProfile.commanderSpecialty?.name ?? '无'}。{currentCityProfile.commanderSpecialty?.description ?? '任命合适主将后，可在此看到军务侧加成。'}</p>
                         <div className="mb-4 rounded bg-black/20 p-3 text-xs text-slate-300">
                             驻守武将：{currentCityOfficers.length} 人 | 当前城有效统率：{currentCityStats.cmd} | 当前城有效魅力：{currentCityStats.cha}
                         </div>
@@ -1433,6 +1447,7 @@ export default function App() {
                                     <div>
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="text-xs text-slate-400 font-mono mt-1">统:{o.cmd} 智:{o.int} 政:{o.pol} 魅:{o.cha}</div>
+                                        <div className="mt-1 text-xs text-slate-500">定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}</div>
                                     </div>
                                     <button 
                                         onClick={() => personnelAction('recruit', o.id)}
@@ -1460,6 +1475,7 @@ export default function App() {
                                     <div>
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="mt-1 text-xs text-slate-400">政:{o.pol} 魅:{o.cha} 统:{o.cmd}</div>
+                                        <div className="mt-1 text-xs text-slate-500">定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}</div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button 
@@ -1502,6 +1518,9 @@ export default function App() {
                                         </div>
                                         <div className="mt-1 text-xs text-slate-400">
                                             状态：{getLoyaltyStageLabel(o.loyalty)} | 当前贡献效率：{Math.round(getOfficerContributionMultiplier(o.loyalty) * 100)}%
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-500">
+                                            定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}
                                         </div>
                                         <div className="mt-1 text-xs text-slate-500">
                                             驻守：{cities[o.cityId]?.name ?? '未配置'}
