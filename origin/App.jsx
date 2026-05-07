@@ -51,6 +51,12 @@ import {
 } from '../src/logic/engine/gameBalance.js';
 import { resolveAiFactionCityManagement } from '../src/logic/engine/aiCityManagement.js';
 import { getDirectedStatsWithSpecialty, getOfficerSpecialty } from '../src/logic/engine/officerSpecialties.js';
+import {
+    calculateMonthlyRelationshipDrift,
+    calculateRecruitRelationshipBonus,
+    getOfficerRelationLabel,
+    getOfficerRelationScore,
+} from '../src/logic/engine/officerRelationships.js';
 
 const TAB_ITEMS = [
     { id: 'HOME', icon: Home, label: '主城', shortcut: '1' },
@@ -120,6 +126,7 @@ export default function App() {
 
     const getPlayerOfficers = () => officers.filter(o => o.faction === 'player');
     const getPlayerCities = () => Object.values(cities).filter(c => c.owner === 'player');
+    const getPlayerRuler = () => officers.find(officer => officer.id === 'player_ruler') ?? null;
     const getPlayerCity = () => {
         const playerCities = getPlayerCities();
         return playerCities.find(city => city.id === activeCityId) ?? playerCities[0] ?? null;
@@ -346,9 +353,37 @@ export default function App() {
             }
         });
 
-        officers.forEach(officer => {
+        nextOfficers.forEach(officer => {
             if (officer.state !== 'active' || factionRulerIds.has(officer.id)) {
                 return;
+            }
+
+            const ruler = nextOfficers.find(candidate => candidate.id === factions[officer.faction]?.ruler) ?? null;
+            const cityProfile = officer.cityId && officer.faction !== 'free'
+                ? getCityProfileFromState(officer.cityId, officer.faction)
+                : null;
+            const relationshipDrift = calculateMonthlyRelationshipDrift({
+                officer,
+                ruler,
+                governor: cityProfile?.governor ?? null,
+                commander: cityProfile?.commander ?? null,
+            });
+
+            if (relationshipDrift.delta !== 0) {
+                officer.loyalty = Math.max(0, Math.min(100, officer.loyalty + relationshipDrift.delta));
+
+                if (officer.faction === 'player') {
+                    const rulerRelation = getOfficerRelationLabel(relationshipDrift.rulerScore);
+                    const leaderRelation = relationshipDrift.leaderScore !== 0
+                        ? `，与主官关系${getOfficerRelationLabel(relationshipDrift.leaderScore)}`
+                        : '';
+                    loyaltyEventLogs.push({
+                        text: relationshipDrift.delta > 0
+                            ? `【${officer.name}】因与主公关系${rulerRelation}${leaderRelation}，忠诚提升 ${relationshipDrift.delta}。`
+                            : `【${officer.name}】因与主公关系${rulerRelation}${leaderRelation}，忠诚下降 ${Math.abs(relationshipDrift.delta)}。`,
+                        type: relationshipDrift.delta > 0 ? 'system' : 'warning',
+                    });
+                }
             }
 
             if (shouldOfficerDesert(officer.loyalty)) {
@@ -869,18 +904,21 @@ export default function App() {
 
         if (action === 'recruit') {
             // Chance based on Ruler Charm vs Officer Intel/Loyalty
-            const pRuler = officers.find(o => o.id === 'player_ruler');
+            const pRuler = getPlayerRuler();
+            const relationBonus = calculateRecruitRelationshipBonus(pRuler, officer);
+            const relationLabel = getOfficerRelationLabel(getOfficerRelationScore(pRuler, officer));
             const chanceToHire = calculateRecruitChance({
                 rulerCha: pRuler.cha,
                 officerInt: officer.int,
                 officerLoyalty: officer.loyalty,
+                relationshipBonus: relationBonus,
             });
             
             if (chance(chanceToHire)) {
                 setOfficers(prev => prev.map(o => o.id === officerId ? { ...o, faction: 'player', cityId: activeCityId, state: 'active', loyalty: 70 } : o));
-                addLog(`登庸成功！【${officer.name}】被主公的魅力折服，加入了您的麾下！`, 'success');
+                addLog(`登庸成功！【${officer.name}】因与主公关系${relationLabel}，被顺利说服加入麾下。`, 'success');
             } else {
-                addLog(`登庸失败！【${officer.name}】婉拒了您的招募。`);
+                addLog(`登庸失败！【${officer.name}】与主公关系${relationLabel}，婉拒了招募。`);
             }
         } 
         else if (action === 'reward') {
@@ -1431,6 +1469,7 @@ export default function App() {
         const discoveredOfficers = officers.filter(o => o.state === 'discovered' && o.faction === 'free');
         const currentCityProfile = getCurrentCityProfile();
         const stationedOfficers = currentCityProfile.stationedOfficers.filter(o => o.id !== 'player_ruler');
+        const playerRuler = getPlayerRuler();
 
         return (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1448,6 +1487,7 @@ export default function App() {
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="text-xs text-slate-400 font-mono mt-1">统:{o.cmd} 智:{o.int} 政:{o.pol} 魅:{o.cha}</div>
                                         <div className="mt-1 text-xs text-slate-500">定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}</div>
+                                        <div className="mt-1 text-xs text-slate-500">与主公相性：{getOfficerRelationLabel(getOfficerRelationScore(playerRuler, o))} | 招募修正：{calculateRecruitRelationshipBonus(playerRuler, o) >= 0 ? '+' : ''}{calculateRecruitRelationshipBonus(playerRuler, o)}</div>
                                     </div>
                                     <button 
                                         onClick={() => personnelAction('recruit', o.id)}
@@ -1476,6 +1516,7 @@ export default function App() {
                                         <div className="text-amber-100 font-bold">{o.name}</div>
                                         <div className="mt-1 text-xs text-slate-400">政:{o.pol} 魅:{o.cha} 统:{o.cmd}</div>
                                         <div className="mt-1 text-xs text-slate-500">定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}</div>
+                                        <div className="mt-1 text-xs text-slate-500">与主公关系：{getOfficerRelationLabel(getOfficerRelationScore(playerRuler, o))}</div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button 
@@ -1521,6 +1562,9 @@ export default function App() {
                                         </div>
                                         <div className="mt-1 text-xs text-slate-500">
                                             定位：{o.roleProfile} | 特技：{getOfficerSpecialty(o)?.name ?? '无'}
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-500">
+                                            与主公关系：{getOfficerRelationLabel(getOfficerRelationScore(playerRuler, o))}
                                         </div>
                                         <div className="mt-1 text-xs text-slate-500">
                                             驻守：{cities[o.cityId]?.name ?? '未配置'}

@@ -277,7 +277,7 @@ export function getCapturedCityTroops(enemyTroops) {
   return Math.floor(enemyTroops * GAME_BALANCE.military.captureTroopRetentionRate);
 }
 
-export function calculateRecruitChance({ rulerCha, officerInt, officerLoyalty }) {
+export function calculateRecruitChance({ rulerCha, officerInt, officerLoyalty, relationshipBonus = 0 }) {
   return Math.max(
     10,
     Math.floor(
@@ -285,6 +285,7 @@ export function calculateRecruitChance({ rulerCha, officerInt, officerLoyalty })
         rulerCha * GAME_BALANCE.personnel.recruitChaFactor -
         officerInt * GAME_BALANCE.personnel.recruitIntFactor -
         officerLoyalty * GAME_BALANCE.personnel.recruitLoyaltyFactor +
+        relationshipBonus +
         randInt(GAME_BALANCE.personnel.recruitRandMin, GAME_BALANCE.personnel.recruitRandMax)
     )
   );
