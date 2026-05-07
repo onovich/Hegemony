@@ -62,7 +62,7 @@ const chance = (percent) => Math.random() * 100 < percent;
 const EMPTY_STATS = { cmd: 0, int: 0, pol: 0, cha: 0 };
 const cloneState = (value) => JSON.parse(JSON.stringify(value));
 
-export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGame, onReturnToTitle }) {
+export default function App({ initialSnapshot = null, saveSlots = [], onSaveGame, onLoadSavedGame, onReturnToTitle }) {
     // --- State ---
     const [date, setDate] = useState(() => cloneState(initialSnapshot?.date ?? INITIAL_DATE));
     const [ap, setAp] = useState(() => initialSnapshot?.ap ?? MAX_AP);
@@ -80,6 +80,7 @@ export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGam
     const [selectedBattleStrategy, setSelectedBattleStrategy] = useState(() => initialSnapshot?.selectedBattleStrategy ?? 'steady');
     const [battleInProgress, setBattleInProgress] = useState(() => initialSnapshot?.battleInProgress ?? false);
     const [isSystemMenuOpen, setIsSystemMenuOpen] = useState(false);
+    const [systemSlotAction, setSystemSlotAction] = useState(null);
     const logsEndRef = useRef(null);
 
     // Auto-scroll logs
@@ -507,15 +508,16 @@ export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGam
         return () => window.removeEventListener('keydown', handleKeydown);
     }, [isDesktop, isSystemMenuOpen, activeTab, date, ap, resources, cities, factions, officers, inventory, logs]);
 
-    const handleSaveGame = () => {
+    const handleSaveGame = (slotId) => {
         if (battleInProgress) {
             addLog('战斗演算进行中，暂时无法存档。', 'error');
             return;
         }
 
-        const result = onSaveGame?.(exportGameSnapshot());
+        const result = onSaveGame?.(exportGameSnapshot(), slotId);
         if (result?.ok) {
             addLog(result.message ?? '已保存当前战局。', 'system');
+            setSystemSlotAction(null);
             setIsSystemMenuOpen(false);
             return;
         }
@@ -523,16 +525,19 @@ export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGam
         addLog(result?.message ?? '存档失败。', 'error');
     };
 
-    const handleLoadSavedGame = () => {
+    const handleLoadSavedGame = (slotId) => {
         if (battleInProgress) {
             addLog('战斗演算进行中，暂时无法读档。', 'error');
             return;
         }
 
-        const result = onLoadSavedGame?.();
+        const result = onLoadSavedGame?.(slotId);
         if (!result?.ok) {
             addLog(result?.message ?? '当前没有可读取的存档。', 'error');
+            return;
         }
+
+        setSystemSlotAction(null);
     };
 
     const handleReturnToTitle = () => {
@@ -1023,23 +1028,23 @@ export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGam
                         </button>
                         <button
                             type="button"
-                            onClick={handleSaveGame}
+                            onClick={() => setSystemSlotAction('save')}
                             className="flex w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-4 text-left transition hover:border-amber-700/50 hover:bg-slate-900"
                         >
                             <span>
                                 <span className="block text-base font-bold text-amber-100">存档</span>
-                                <span className="mt-1 block text-sm text-slate-400">将当前战局写入本地单槽存档。</span>
+                                <span className="mt-1 block text-sm text-slate-400">选择槽位保存当前战局。</span>
                             </span>
                             <Save className="h-5 w-5 text-amber-300" />
                         </button>
                         <button
                             type="button"
-                            onClick={handleLoadSavedGame}
+                            onClick={() => setSystemSlotAction('load')}
                             className="flex w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-4 text-left transition hover:border-amber-700/50 hover:bg-slate-900"
                         >
                             <span>
                                 <span className="block text-base font-bold text-amber-100">读档</span>
-                                <span className="mt-1 block text-sm text-slate-400">放弃未存进度，读取本地最新存档。</span>
+                                <span className="mt-1 block text-sm text-slate-400">选择槽位读取战局。</span>
                             </span>
                             <FolderOpen className="h-5 w-5 text-amber-300" />
                         </button>
@@ -1052,6 +1057,47 @@ export default function App({ initialSnapshot = null, onSaveGame, onLoadSavedGam
                             <div className="mt-1 text-sm text-slate-400">保留当前局势为挂起状态，并返回标题页。</div>
                         </button>
                     </div>
+
+                    {systemSlotAction ? (
+                        <div className="mt-4 rounded-2xl border border-amber-900/20 bg-black/20 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-bold text-amber-200">{systemSlotAction === 'save' ? '选择存档槽位' : '选择读档槽位'}</div>
+                                    <div className="mt-1 text-xs leading-5 text-slate-400">{systemSlotAction === 'save' ? '将当前战局保存到指定槽位。' : '读取已保存的战局并覆盖当前未存进度。'}</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setSystemSlotAction(null)}
+                                    className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:border-amber-700/50 hover:text-amber-100"
+                                >
+                                    取消
+                                </button>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {saveSlots.map(slot => {
+                                    const isDisabled = systemSlotAction === 'load' && !slot.hasData;
+                                    return (
+                                        <button
+                                            key={slot.slotId}
+                                            type="button"
+                                            disabled={isDisabled}
+                                            onClick={() => (systemSlotAction === 'save' ? handleSaveGame(slot.slotId) : handleLoadSavedGame(slot.slotId))}
+                                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isDisabled ? 'cursor-not-allowed border-slate-800 bg-slate-950/40 opacity-50' : 'border-slate-700 bg-slate-950/60 hover:border-amber-700/50 hover:bg-slate-900/80'}`}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div className="text-sm font-bold text-amber-100">{slot.slotLabel}</div>
+                                                    <div className="mt-1 text-xs text-slate-400">{slot.dateLabel} · {slot.cityLabel}</div>
+                                                </div>
+                                                <div className="text-xs font-bold text-amber-300">{systemSlotAction === 'save' ? '保存' : '读取'}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         );

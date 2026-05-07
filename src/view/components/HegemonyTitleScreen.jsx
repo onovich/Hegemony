@@ -1,4 +1,6 @@
 import { FolderOpen, Play, Save, Sword } from 'lucide-react';
+import { useState } from 'react';
+import HegemonySaveSlotPicker from './HegemonySaveSlotPicker.jsx';
 
 const TITLE_ACTIONS = [
     {
@@ -11,14 +13,14 @@ const TITLE_ACTIONS = [
     {
         id: 'save',
         title: '存档',
-        description: '保存当前挂起的战局进度',
+        description: '选择槽位保存当前战局',
         tone: 'neutral',
         icon: Save,
     },
     {
         id: 'load',
         title: '读档',
-        description: '载入本地最新单槽存档',
+        description: '选择槽位读取已有战局',
         tone: 'neutral',
         icon: FolderOpen,
     },
@@ -26,27 +28,28 @@ const TITLE_ACTIONS = [
 
 export default function HegemonyTitleScreen({
     hasSuspendedGame,
-    saveMetadata,
+    saveSlots,
     statusMessage,
     statusTone,
     onNewGame,
     onSave,
     onLoad,
 }) {
+    const [slotAction, setSlotAction] = useState(null);
     const statusClassName = statusTone === 'error'
         ? 'border-red-900/50 bg-red-950/40 text-red-200'
         : 'border-emerald-900/40 bg-emerald-950/30 text-emerald-100';
 
     const actionHandlers = {
         new: onNewGame,
-        save: onSave,
-        load: onLoad,
+        save: () => setSlotAction('save'),
+        load: () => setSlotAction('load'),
     };
 
     const actionAvailability = {
         new: true,
         save: hasSuspendedGame,
-        load: Boolean(saveMetadata),
+        load: saveSlots.some(slot => slot.hasData),
     };
 
     const renderActionButton = (action) => {
@@ -90,6 +93,43 @@ export default function HegemonyTitleScreen({
                     <div className="space-y-3">
                         {TITLE_ACTIONS.map(action => renderActionButton(action))}
                     </div>
+
+                    {slotAction === 'save' ? (
+                        <div className="mt-4">
+                            <HegemonySaveSlotPicker
+                                title="选择存档槽位"
+                                description="将当前挂起战局保存到指定槽位。"
+                                slots={saveSlots}
+                                actionLabel="覆盖保存"
+                                onSelect={(slotId) => {
+                                    const result = onSave(slotId);
+                                    if (result?.ok) {
+                                        setSlotAction(null);
+                                    }
+                                }}
+                                onCancel={() => setSlotAction(null)}
+                            />
+                        </div>
+                    ) : null}
+
+                    {slotAction === 'load' ? (
+                        <div className="mt-4">
+                            <HegemonySaveSlotPicker
+                                title="选择读档槽位"
+                                description="从已有槽位读取战局。"
+                                slots={saveSlots}
+                                actionLabel="读取"
+                                disabledSlotIds={saveSlots.filter(slot => !slot.hasData).map(slot => slot.slotId)}
+                                onSelect={(slotId) => {
+                                    const result = onLoad(slotId);
+                                    if (result?.ok) {
+                                        setSlotAction(null);
+                                    }
+                                }}
+                                onCancel={() => setSlotAction(null)}
+                            />
+                        </div>
+                    ) : null}
 
                     {statusMessage ? (
                         <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${statusClassName}`}>

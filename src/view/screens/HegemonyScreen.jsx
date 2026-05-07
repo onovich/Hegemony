@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loadGameSnapshot, readGameSaveMetadata, saveGameSnapshot } from '../../logic/engine/gamePersistence.js';
+import { loadGameSnapshot, readAllGameSaveMetadata, saveGameSnapshot } from '../../logic/engine/gamePersistence.js';
 import { INITIAL_CITIES, INITIAL_DATE, INITIAL_OFFICERS, INITIAL_RESOURCES } from '../../data/gameConfig.js';
 import { getCityRoleLabel } from '../../logic/engine/gameBalance.js';
 import ScreenMountNote from '../components/ScreenMountNote.jsx';
@@ -18,8 +18,10 @@ export default function HegemonyScreen() {
   const [runtimeKey, setRuntimeKey] = useState(createRuntimeKey);
   const [initialSnapshot, setInitialSnapshot] = useState(null);
   const [suspendedSnapshot, setSuspendedSnapshot] = useState(null);
-  const [saveMetadata, setSaveMetadata] = useState(() => readGameSaveMetadata());
+  const [saveSlots, setSaveSlots] = useState(() => readAllGameSaveMetadata());
   const [titleStatus, setTitleStatus] = useState(null);
+
+  const refreshSaveSlots = () => setSaveSlots(readAllGameSaveMetadata());
 
   const openingState = {
     date: INITIAL_DATE,
@@ -58,24 +60,24 @@ export default function HegemonyScreen() {
     refreshRuntime(null, nextTab);
   };
 
-  const handleSaveSnapshot = (snapshot) => {
+  const handleSaveSnapshot = (snapshot, slotId) => {
     if (!snapshot) {
       return { ok: false, message: '当前没有可保存的战局。' };
     }
 
-    const metadata = saveGameSnapshot(snapshot);
+    const metadata = saveGameSnapshot(snapshot, slotId);
     if (!metadata) {
       return { ok: false, message: '本地存档失败，请检查浏览器存储是否可用。' };
     }
 
     setSuspendedSnapshot(snapshot);
-    setSaveMetadata(metadata);
-    setTitleStatus({ tone: 'success', message: `已保存战局：${metadata.dateLabel} · ${metadata.cityLabel}` });
-    return { ok: true, message: `已保存战局：${metadata.dateLabel} · ${metadata.cityLabel}` };
+    refreshSaveSlots();
+    setTitleStatus({ tone: 'success', message: `已保存至${metadata.slotLabel}：${metadata.dateLabel} · ${metadata.cityLabel}` });
+    return { ok: true, message: `已保存至${metadata.slotLabel}：${metadata.dateLabel} · ${metadata.cityLabel}` };
   };
 
-  const handleLoadSavedGame = () => {
-    const snapshot = loadGameSnapshot();
+  const handleLoadSavedGame = (slotId) => {
+    const snapshot = loadGameSnapshot(slotId);
     if (!snapshot) {
       setTitleStatus({ tone: 'error', message: '当前没有可读取的有效存档。' });
       return { ok: false, message: '当前没有可读取的有效存档。' };
@@ -83,7 +85,7 @@ export default function HegemonyScreen() {
 
     setTitleStatus(null);
     setSuspendedSnapshot(snapshot);
-    setSaveMetadata(readGameSaveMetadata());
+    refreshSaveSlots();
     refreshRuntime(snapshot);
     return { ok: true, message: '已读取本地存档。' };
   };
@@ -96,7 +98,8 @@ export default function HegemonyScreen() {
   };
 
   const handleTitleSave = () => {
-    const result = handleSaveSnapshot(suspendedSnapshot);
+    const defaultSlot = saveSlots[0]?.slotId;
+    const result = handleSaveSnapshot(suspendedSnapshot, defaultSlot);
     if (!result.ok) {
       setTitleStatus({ tone: 'error', message: result.message });
     }
@@ -108,11 +111,11 @@ export default function HegemonyScreen() {
       {screenMode === 'title' ? (
         <HegemonyTitleScreen
           hasSuspendedGame={Boolean(suspendedSnapshot)}
-          saveMetadata={saveMetadata}
+          saveSlots={saveSlots}
           statusMessage={titleStatus?.message ?? null}
           statusTone={titleStatus?.tone ?? 'success'}
           onNewGame={handleStartNewGame}
-          onSave={handleTitleSave}
+          onSave={slotId => handleSaveSnapshot(suspendedSnapshot, slotId)}
           onLoad={handleLoadSavedGame}
         />
       ) : screenMode === 'guide' ? (
@@ -125,6 +128,7 @@ export default function HegemonyScreen() {
         <HegemonyGame
           key={runtimeKey}
           initialSnapshot={initialSnapshot}
+          saveSlots={saveSlots}
           onSaveGame={handleSaveSnapshot}
           onLoadSavedGame={handleLoadSavedGame}
           onReturnToTitle={handleReturnToTitle}
