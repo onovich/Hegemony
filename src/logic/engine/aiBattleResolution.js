@@ -88,6 +88,7 @@ export function resolveAiMonthlyBattles({
 
     const relation = factions[factionId]?.relation ?? 0;
     const ceasefireTurns = factions[factionId]?.ceasefireTurns ?? 0;
+    const hostilityTurns = factions[factionId]?.hostilityTurns ?? 0;
     if (ceasefireTurns > 0) {
       return;
     }
@@ -100,10 +101,10 @@ export function resolveAiMonthlyBattles({
       targetCity: defender.city,
       targetStats: defender.stats,
       relation,
-      attackRelationThreshold: GAME_BALANCE.ai.attackRelationThreshold + strategyProfile.attackRelationThresholdOffset + goalBattleModifiers.attackRelationThresholdOffset,
-      attackMinTroops: Math.floor(GAME_BALANCE.ai.attackMinTroops * strategyProfile.attackMinTroopsMultiplier * goalBattleModifiers.attackMinTroopsMultiplier),
+      attackRelationThreshold: GAME_BALANCE.ai.attackRelationThreshold + strategyProfile.attackRelationThresholdOffset + goalBattleModifiers.attackRelationThresholdOffset + (hostilityTurns > 0 ? GAME_BALANCE.diplomacy.hostilityAttackRelationThresholdBonus : 0),
+      attackMinTroops: Math.floor(GAME_BALANCE.ai.attackMinTroops * strategyProfile.attackMinTroopsMultiplier * goalBattleModifiers.attackMinTroopsMultiplier * (hostilityTurns > 0 ? GAME_BALANCE.diplomacy.hostilityAttackMinTroopsMultiplier : 1)),
       attackMinMorale: Math.floor(GAME_BALANCE.ai.attackMinMorale * strategyProfile.attackMinMoraleMultiplier * goalBattleModifiers.attackMinMoraleMultiplier),
-      attackPowerAdvantageRatio: GAME_BALANCE.ai.attackPowerAdvantageRatio * strategyProfile.attackPowerAdvantageRatioMultiplier * goalBattleModifiers.attackPowerAdvantageRatioMultiplier,
+      attackPowerAdvantageRatio: GAME_BALANCE.ai.attackPowerAdvantageRatio * strategyProfile.attackPowerAdvantageRatioMultiplier * goalBattleModifiers.attackPowerAdvantageRatioMultiplier * (hostilityTurns > 0 ? GAME_BALANCE.diplomacy.hostilityAttackPowerAdvantageRatioMultiplier : 1),
     })) {
       return;
     }

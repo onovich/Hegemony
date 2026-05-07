@@ -15,7 +15,7 @@ import {
     MAX_AP,
 } from '../src/data/gameConfig.js';
 import { advanceMonth } from '../src/logic/engine/calendarEngine.js';
-import { establishCeasefire } from '../src/logic/engine/diplomacyStatusResolution.js';
+import { establishCeasefire, escalateHostility } from '../src/logic/engine/diplomacyStatusResolution.js';
 import { resolveMonthlyTurnFlow } from '../src/logic/engine/monthlyTurnFlow.js';
 import {
     advanceTurnEconomy,
@@ -505,10 +505,10 @@ export default function App() {
 
             setFactions(prev => ({
                 ...prev,
-                [targetFaction]: {
+                [targetFaction]: escalateHostility({
                     ...prev[targetFaction],
                     relation: Math.max(0, prev[targetFaction].relation - GAME_BALANCE.diplomacy.attackRelationDrop),
-                },
+                }),
             }));
 
             if (currentRelation >= GAME_BALANCE.diplomacy.tradeThreshold) {
@@ -696,6 +696,10 @@ export default function App() {
                 return;
             }
             setResources(prev => ({ ...prev, gold: prev.gold - cost }));
+            setFactions(prev => ({
+                ...prev,
+                [factionId]: escalateHostility(prev[factionId], GAME_BALANCE.diplomacy.covertHostilityTurns),
+            }));
             // Lower loyalty of a random officer in that faction
             const enemyOfficers = officers.filter(o => o.faction === factionId);
             if (enemyOfficers.length > 0) {
@@ -1329,7 +1333,7 @@ export default function App() {
                             
                             <div className="mb-6 flex-grow">
                                 <div className="mb-3 rounded border border-slate-700 bg-black/20 px-3 py-2 text-xs text-slate-300">
-                                    关系状态：{getDiplomacyStateLabel(faction.relation, faction.ceasefireTurns ?? 0)}
+                                    关系状态：{getDiplomacyStateLabel(faction.relation, faction.ceasefireTurns ?? 0, faction.hostilityTurns ?? 0)}
                                 </div>
                                 <div className="text-sm text-slate-400 mb-1">双方友好度</div>
                                 <div className="w-full bg-slate-900 rounded-full h-2.5 mb-2 border border-slate-700">
@@ -1339,6 +1343,8 @@ export default function App() {
                                 <div className="mt-2 text-xs text-slate-400">
                                     {(faction.ceasefireTurns ?? 0) > 0
                                         ? `停战剩余 ${faction.ceasefireTurns} 个月，期间双方不可主动开战。`
+                                        : (faction.hostilityTurns ?? 0) > 0
+                                            ? `敌对升级剩余 ${faction.hostilityTurns} 个月，AI 更易施压与出兵，边境压力也会加重。`
                                         : faction.relation >= GAME_BALANCE.diplomacy.tradeThreshold
                                         ? '每月可获得通商收益。'
                                         : faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold

@@ -78,6 +78,7 @@ export const INITIAL_FACTIONS = {
     ruler: 'caocao',
     relation: 40,
     ceasefireTurns: 0,
+    hostilityTurns: 0,
     color: 'bg-red-700',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 0.65,
@@ -124,6 +125,7 @@ export const INITIAL_FACTIONS = {
     ruler: 'liubei',
     relation: 60,
     ceasefireTurns: 0,
+    hostilityTurns: 0,
     color: 'bg-green-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.4,
@@ -170,6 +172,7 @@ export const INITIAL_FACTIONS = {
     ruler: 'sunquan',
     relation: 50,
     ceasefireTurns: 0,
+    hostilityTurns: 0,
     color: 'bg-orange-600',
     aiDiplomacyProfile: {
       giftChanceMultiplier: 1.05,
@@ -435,6 +438,7 @@ export const GAME_BALANCE = {
   diplomacy: {
     giftGoldCost: 500,
     ceasefireTurns: 2,
+    hostilityTurns: 3,
     giftPolFactor: 0.12,
     giftMin: 6,
     giftMax: 12,
@@ -451,6 +455,8 @@ export const GAME_BALANCE = {
     tradeFoodMax: 420,
     borderPressureMoraleLossMin: 3,
     borderPressureMoraleLossMax: 6,
+    hostilityPressureBonusMin: 2,
+    hostilityPressureBonusMax: 4,
     attackRelationDrop: 40,
     friendlyAttackReputationPenalty: 10,
     monthlyEvents: {

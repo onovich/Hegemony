@@ -1,5 +1,5 @@
 import { GAME_BALANCE } from '../../data/gameConfig.js';
-import { establishCeasefire } from './diplomacyStatusResolution.js';
+import { establishCeasefire, escalateHostility } from './diplomacyStatusResolution.js';
 import {
   getAlienateLoyaltyDrop,
   getAlienateSuccessChance,
@@ -81,6 +81,7 @@ export function resolveAiMonthlyDiplomacy({
           const loyaltyDrop = getAlienateLoyaltyDrop();
           const nextTarget = nextOfficers.find(officer => officer.id === targetOfficer.id);
           if (nextTarget) {
+            nextFactions[faction.id] = escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns);
             nextTarget.loyalty = Math.max(0, nextTarget.loyalty - loyaltyDrop);
             logs.push({
               text: `【${faction.name}】暗中散布流言，动摇了我方【${nextTarget.name}】的忠诚，忠诚下降 ${loyaltyDrop}。`,
@@ -90,6 +91,7 @@ export function resolveAiMonthlyDiplomacy({
           }
         }
 
+        nextFactions[faction.id] = escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns);
         logs.push({
           text: `【${faction.name}】试图离间我方将领，但暂未得手。`,
           type: 'system',
@@ -108,10 +110,10 @@ export function resolveAiMonthlyDiplomacy({
           GAME_BALANCE.ai.diplomacy.pressureRelationDropMax
         ) * diplomacyProfile.pressureDropMultiplier * goalDiplomacyModifiers.pressureDropMultiplier));
         const nextRelation = Math.max(0, relation - relationDrop);
-        nextFactions[faction.id] = {
+        nextFactions[faction.id] = escalateHostility({
           ...nextFactions[faction.id],
           relation: nextRelation,
-        };
+        });
         logs.push({
           text: `【${faction.name}】在边境陈兵施压，双方关系下降 ${relationDrop}。`,
           type: 'warning',

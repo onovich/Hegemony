@@ -4,6 +4,7 @@ import { resolveMonthlyDiplomacyEvents } from './diplomacyEvents.js';
 import {
   getBorderPressureMoraleLoss,
   getEmbezzleGoldLoss,
+  getHostilityPressureBonus,
   getLoyaltyPenaltyForBankruptcy,
   getMoralePenaltyForStarvation,
   getTradeIncomeBonus,
@@ -87,12 +88,14 @@ export function resolvePlayerMonthlyTurn({
       return;
     }
 
-    if (faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold && myCities.length > 0) {
+    if ((faction.relation <= GAME_BALANCE.diplomacy.hostileThreshold || (faction.hostilityTurns ?? 0) > 0) && myCities.length > 0) {
       const targetCity = myCities[randInt(0, myCities.length - 1)];
-      const moraleLoss = getBorderPressureMoraleLoss();
+      const moraleLoss = getBorderPressureMoraleLoss() + ((faction.hostilityTurns ?? 0) > 0 ? getHostilityPressureBonus() : 0);
       moraleLossByCity[targetCity.id] = (moraleLossByCity[targetCity.id] ?? 0) + moraleLoss;
       loyaltyEventLogs.push({
-        text: `【${faction.name}】在边境施压，导致【${targetCity.name}】士气下降 ${moraleLoss}。`,
+        text: (faction.hostilityTurns ?? 0) > 0
+          ? `【${faction.name}】已至兵戈边缘，对【${targetCity.name}】施加更强边境压力，士气下降 ${moraleLoss}。`
+          : `【${faction.name}】在边境施压，导致【${targetCity.name}】士气下降 ${moraleLoss}。`,
         type: 'warning',
       });
     }

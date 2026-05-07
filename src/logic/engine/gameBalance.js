@@ -312,9 +312,13 @@ export function getGiftRelationBoost(pol) {
   );
 }
 
-export function getDiplomacyStateLabel(relation, ceasefireTurns = 0) {
+export function getDiplomacyStateLabel(relation, ceasefireTurns = 0, hostilityTurns = 0) {
   if (ceasefireTurns > 0) {
     return '停战修盟';
+  }
+
+  if (hostilityTurns > 0) {
+    return '兵戈在即';
   }
 
   if (relation >= GAME_BALANCE.diplomacy.tradeThreshold) {
@@ -339,6 +343,13 @@ export function getBorderPressureMoraleLoss() {
   return randInt(
     GAME_BALANCE.diplomacy.borderPressureMoraleLossMin,
     GAME_BALANCE.diplomacy.borderPressureMoraleLossMax
+  );
+}
+
+export function getHostilityPressureBonus() {
+  return randInt(
+    GAME_BALANCE.diplomacy.hostilityPressureBonusMin,
+    GAME_BALANCE.diplomacy.hostilityPressureBonusMax
   );
 }
 
