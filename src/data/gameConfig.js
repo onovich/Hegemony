@@ -86,6 +86,19 @@ export const INITIAL_FACTIONS = {
       pressureTroopRatioMultiplier: 0.95,
       alienateChanceMultiplier: 1.35,
     },
+    aiStrategyProfile: {
+      attackRelationThresholdOffset: 18,
+      attackMinTroopsMultiplier: 0.88,
+      attackMinMoraleMultiplier: 0.92,
+      attackPowerAdvantageRatioMultiplier: 0.94,
+      growthMultipliers: {
+        troops: 1.15,
+        agriculture: 0.95,
+        commerce: 0.95,
+        defense: 1.08,
+        morale: 1,
+      },
+    },
   },
   liubei: {
     id: 'liubei',
@@ -101,6 +114,19 @@ export const INITIAL_FACTIONS = {
       pressureTroopRatioMultiplier: 1.08,
       alienateChanceMultiplier: 0.7,
     },
+    aiStrategyProfile: {
+      attackRelationThresholdOffset: -8,
+      attackMinTroopsMultiplier: 1.08,
+      attackMinMoraleMultiplier: 1.05,
+      attackPowerAdvantageRatioMultiplier: 1.08,
+      growthMultipliers: {
+        troops: 0.95,
+        agriculture: 1.15,
+        commerce: 1,
+        defense: 0.95,
+        morale: 1.12,
+      },
+    },
   },
   sunquan: {
     id: 'sunquan',
@@ -115,6 +141,19 @@ export const INITIAL_FACTIONS = {
       pressureDropMultiplier: 0.95,
       pressureTroopRatioMultiplier: 1,
       alienateChanceMultiplier: 1,
+    },
+    aiStrategyProfile: {
+      attackRelationThresholdOffset: 4,
+      attackMinTroopsMultiplier: 0.98,
+      attackMinMoraleMultiplier: 0.98,
+      attackPowerAdvantageRatioMultiplier: 1,
+      growthMultipliers: {
+        troops: 1,
+        agriculture: 0.98,
+        commerce: 1.12,
+        defense: 1.05,
+        morale: 1.05,
+      },
     },
   },
 };

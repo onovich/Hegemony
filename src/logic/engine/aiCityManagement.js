@@ -18,6 +18,27 @@ const COMMANDER_ROLE_WEIGHTS = {
   military: { cmd: 1.25, cha: 0.45, int: 0.2, pol: 0.1 },
 };
 
+function getAiStrategyProfile(faction = {}) {
+  return {
+    growthMultipliers: {
+      troops: 1,
+      agriculture: 1,
+      commerce: 1,
+      defense: 1,
+      morale: 1,
+    },
+    ...faction.aiStrategyProfile,
+    growthMultipliers: {
+      troops: 1,
+      agriculture: 1,
+      commerce: 1,
+      defense: 1,
+      morale: 1,
+      ...(faction.aiStrategyProfile?.growthMultipliers ?? {}),
+    },
+  };
+}
+
 function getRoleWeights(role, mapping) {
   return mapping[role] ?? mapping.capital;
 }
@@ -40,34 +61,36 @@ function getRoleGrowthBonus(role) {
   return GAME_BALANCE.ai.roleGrowthBonus[role] ?? GAME_BALANCE.ai.roleGrowthBonus.capital;
 }
 
-function calculateAiCityGrowth(city, profile) {
+function calculateAiCityGrowth(city, profile, strategyProfile) {
   const roleBonus = getRoleGrowthBonus(city.role);
+  const growthMultipliers = strategyProfile.growthMultipliers;
 
   return {
-    troops: randInt(GAME_BALANCE.ai.monthlyTroopsMin, GAME_BALANCE.ai.monthlyTroopsMax)
+    troops: Math.floor((randInt(GAME_BALANCE.ai.monthlyTroopsMin, GAME_BALANCE.ai.monthlyTroopsMax)
       + Math.floor(profile.militaryStats.cmd * GAME_BALANCE.ai.troopCmdFactor)
       + Math.floor(profile.militaryStats.cha * GAME_BALANCE.ai.troopChaFactor)
-      + roleBonus.troops,
-    agriculture: randInt(GAME_BALANCE.ai.monthlyAgricultureMin, GAME_BALANCE.ai.monthlyAgricultureMax)
+      + roleBonus.troops) * growthMultipliers.troops),
+    agriculture: Math.floor((randInt(GAME_BALANCE.ai.monthlyAgricultureMin, GAME_BALANCE.ai.monthlyAgricultureMax)
       + Math.floor(profile.economyStats.pol * GAME_BALANCE.ai.agriculturePolFactor)
-      + roleBonus.agriculture,
-    commerce: randInt(GAME_BALANCE.ai.monthlyCommerceMin, GAME_BALANCE.ai.monthlyCommerceMax)
+      + roleBonus.agriculture) * growthMultipliers.agriculture),
+    commerce: Math.floor((randInt(GAME_BALANCE.ai.monthlyCommerceMin, GAME_BALANCE.ai.monthlyCommerceMax)
       + Math.floor(profile.economyStats.pol * GAME_BALANCE.ai.commercePolFactor)
       + Math.floor(profile.economyStats.cha * GAME_BALANCE.ai.commerceChaFactor)
-      + roleBonus.commerce,
-    defense: randInt(GAME_BALANCE.ai.monthlyDefenseMin, GAME_BALANCE.ai.monthlyDefenseMax)
+      + roleBonus.commerce) * growthMultipliers.commerce),
+    defense: Math.floor((randInt(GAME_BALANCE.ai.monthlyDefenseMin, GAME_BALANCE.ai.monthlyDefenseMax)
       + Math.floor(profile.militaryStats.cmd * GAME_BALANCE.ai.defenseCmdFactor)
-      + roleBonus.defense,
-    morale: randInt(GAME_BALANCE.ai.monthlyMoraleMin, GAME_BALANCE.ai.monthlyMoraleMax)
+      + roleBonus.defense) * growthMultipliers.defense),
+    morale: Math.floor((randInt(GAME_BALANCE.ai.monthlyMoraleMin, GAME_BALANCE.ai.monthlyMoraleMax)
       + Math.floor(profile.militaryStats.cmd * GAME_BALANCE.ai.moraleCmdFactor)
       + Math.floor(profile.militaryStats.cha * GAME_BALANCE.ai.moraleChaFactor)
-      + roleBonus.morale,
+      + roleBonus.morale) * growthMultipliers.morale),
   };
 }
 
-export function resolveAiFactionCityManagement({ factionId, factionName, cities, officers }) {
+export function resolveAiFactionCityManagement({ factionId, factionName, faction, cities, officers }) {
   const cityUpdates = {};
   const logs = [];
+  const strategyProfile = getAiStrategyProfile(faction);
 
   cities.forEach(city => {
     const stationedOfficers = officers.filter(officer => (
@@ -96,7 +119,7 @@ export function resolveAiFactionCityManagement({ factionId, factionName, cities,
       commanderSpecialty: militaryProfile.activeSpecialty,
       leadershipRelation: relationshipProfile.relationshipEffect,
     };
-    const growth = calculateAiCityGrowth(city, profile);
+    const growth = calculateAiCityGrowth(city, profile, strategyProfile);
 
     cityUpdates[city.id] = {
       ...city,

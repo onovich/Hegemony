@@ -8,6 +8,16 @@ import {
   shouldAiAttack,
 } from './gameBalance.js';
 
+function getAiStrategyProfile(faction) {
+  return {
+    attackRelationThresholdOffset: 0,
+    attackMinTroopsMultiplier: 1,
+    attackMinMoraleMultiplier: 1,
+    attackPowerAdvantageRatioMultiplier: 1,
+    ...faction.aiStrategyProfile,
+  };
+}
+
 export function resolveAiMonthlyBattles({
   nextCities,
   nextOfficers,
@@ -66,12 +76,17 @@ export function resolveAiMonthlyBattles({
     }
 
     const relation = factions[factionId]?.relation ?? 0;
+    const strategyProfile = getAiStrategyProfile(factions[factionId] ?? {});
     if (!shouldAiAttack({
       attackerCity: attacker.city,
       attackerStats: attacker.stats,
       targetCity: defender.city,
       targetStats: defender.stats,
       relation,
+      attackRelationThreshold: GAME_BALANCE.ai.attackRelationThreshold + strategyProfile.attackRelationThresholdOffset,
+      attackMinTroops: Math.floor(GAME_BALANCE.ai.attackMinTroops * strategyProfile.attackMinTroopsMultiplier),
+      attackMinMorale: Math.floor(GAME_BALANCE.ai.attackMinMorale * strategyProfile.attackMinMoraleMultiplier),
+      attackPowerAdvantageRatio: GAME_BALANCE.ai.attackPowerAdvantageRatio * strategyProfile.attackPowerAdvantageRatioMultiplier,
     })) {
       return;
     }

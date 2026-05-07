@@ -45,6 +45,7 @@ export function resolveMonthlyTurnFlow({
     const aiManagement = resolveAiFactionCityManagement({
       factionId,
       factionName: nextFactions[factionId].name,
+      faction: nextFactions[factionId],
       cities: getFactionCitiesFromState(factionId),
       officers: nextOfficers,
     });
