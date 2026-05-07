@@ -9,6 +9,18 @@ import {
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (percent) => Math.random() * 100 < percent;
 
+function getAiDiplomacyProfile(faction) {
+  return {
+    giftChanceMultiplier: 1,
+    giftBoostMultiplier: 1,
+    pressureChanceMultiplier: 1,
+    pressureDropMultiplier: 1,
+    pressureTroopRatioMultiplier: 1,
+    alienateChanceMultiplier: 1,
+    ...faction.aiDiplomacyProfile,
+  };
+}
+
 function getFactionTroops(cities) {
   return cities.reduce((total, city) => total + city.troops, 0);
 }
@@ -35,16 +47,17 @@ export function resolveAiMonthlyDiplomacy({
 
       const factionOfficers = getFactionOfficersFromState(faction.id);
       const relation = nextFactions[faction.id].relation ?? 50;
+      const diplomacyProfile = getAiDiplomacyProfile(faction);
       const factionStats = getEffectiveFactionStats(factionOfficers);
       const factionTroops = getFactionTroops(factionCities);
       const isMilitarilyStronger = playerTroops > 0
-        ? factionTroops >= playerTroops * GAME_BALANCE.ai.diplomacy.pressureTroopRatio
+        ? factionTroops >= playerTroops * (GAME_BALANCE.ai.diplomacy.pressureTroopRatio * diplomacyProfile.pressureTroopRatioMultiplier)
         : true;
 
       if (
         relation <= GAME_BALANCE.diplomacy.hostileThreshold &&
         playerCourtOfficers.length > 0 &&
-        chance(GAME_BALANCE.ai.diplomacy.alienateChance)
+        chance(GAME_BALANCE.ai.diplomacy.alienateChance * diplomacyProfile.alienateChanceMultiplier)
       ) {
         const targetOfficer = playerCourtOfficers[randInt(0, playerCourtOfficers.length - 1)];
         if (chance(getAlienateSuccessChance(factionStats.int, targetOfficer.int))) {
@@ -70,12 +83,12 @@ export function resolveAiMonthlyDiplomacy({
       if (
         isMilitarilyStronger &&
         relation > GAME_BALANCE.diplomacy.hostileThreshold &&
-        chance(GAME_BALANCE.ai.diplomacy.pressureChance)
+        chance(GAME_BALANCE.ai.diplomacy.pressureChance * diplomacyProfile.pressureChanceMultiplier)
       ) {
-        const relationDrop = randInt(
+        const relationDrop = Math.max(1, Math.floor(randInt(
           GAME_BALANCE.ai.diplomacy.pressureRelationDropMin,
           GAME_BALANCE.ai.diplomacy.pressureRelationDropMax
-        );
+        ) * diplomacyProfile.pressureDropMultiplier));
         const nextRelation = Math.max(0, relation - relationDrop);
         nextFactions[faction.id] = {
           ...nextFactions[faction.id],
@@ -91,11 +104,15 @@ export function resolveAiMonthlyDiplomacy({
       if (
         relation >= GAME_BALANCE.ai.diplomacy.giftMinRelation &&
         relation < GAME_BALANCE.diplomacy.tradeThreshold &&
-        chance(GAME_BALANCE.ai.diplomacy.giftChance)
+        chance(GAME_BALANCE.ai.diplomacy.giftChance * diplomacyProfile.giftChanceMultiplier)
       ) {
         const relationBoost = Math.max(
           GAME_BALANCE.ai.diplomacy.giftMinBoost,
-          Math.floor(getGiftRelationBoost(factionStats.pol) * GAME_BALANCE.ai.diplomacy.giftBoostFactor)
+          Math.floor(
+            getGiftRelationBoost(factionStats.pol) *
+            GAME_BALANCE.ai.diplomacy.giftBoostFactor *
+            diplomacyProfile.giftBoostMultiplier
+          )
         );
         const nextRelation = Math.min(100, relation + relationBoost);
         nextFactions[faction.id] = {

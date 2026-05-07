@@ -72,9 +72,51 @@ export const INITIAL_CITIES = {
 
 export const INITIAL_FACTIONS = {
   player: { id: 'player', name: '您的势力', ruler: 'player_ruler', color: 'bg-blue-600' },
-  caocao: { id: 'caocao', name: '曹操军', ruler: 'caocao', relation: 40, color: 'bg-red-700' },
-  liubei: { id: 'liubei', name: '刘备军', ruler: 'liubei', relation: 60, color: 'bg-green-600' },
-  sunquan: { id: 'sunquan', name: '孙权军', ruler: 'sunquan', relation: 50, color: 'bg-orange-600' },
+  caocao: {
+    id: 'caocao',
+    name: '曹操军',
+    ruler: 'caocao',
+    relation: 40,
+    color: 'bg-red-700',
+    aiDiplomacyProfile: {
+      giftChanceMultiplier: 0.65,
+      giftBoostMultiplier: 0.85,
+      pressureChanceMultiplier: 1.3,
+      pressureDropMultiplier: 1.2,
+      pressureTroopRatioMultiplier: 0.95,
+      alienateChanceMultiplier: 1.35,
+    },
+  },
+  liubei: {
+    id: 'liubei',
+    name: '刘备军',
+    ruler: 'liubei',
+    relation: 60,
+    color: 'bg-green-600',
+    aiDiplomacyProfile: {
+      giftChanceMultiplier: 1.4,
+      giftBoostMultiplier: 1.25,
+      pressureChanceMultiplier: 0.6,
+      pressureDropMultiplier: 0.75,
+      pressureTroopRatioMultiplier: 1.08,
+      alienateChanceMultiplier: 0.7,
+    },
+  },
+  sunquan: {
+    id: 'sunquan',
+    name: '孙权军',
+    ruler: 'sunquan',
+    relation: 50,
+    color: 'bg-orange-600',
+    aiDiplomacyProfile: {
+      giftChanceMultiplier: 1.05,
+      giftBoostMultiplier: 1.05,
+      pressureChanceMultiplier: 0.95,
+      pressureDropMultiplier: 0.95,
+      pressureTroopRatioMultiplier: 1,
+      alienateChanceMultiplier: 1,
+    },
+  },
 };
 
 export const INITIAL_OFFICERS = [
