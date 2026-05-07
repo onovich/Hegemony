@@ -146,7 +146,10 @@ export function resolveAiMonthlyDiplomacy({
           const loyaltyDrop = getAlienateLoyaltyDrop();
           const nextTarget = nextOfficers.find(officer => officer.id === targetOfficer.id);
           if (nextTarget) {
-            nextFactions[faction.id] = escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns);
+            nextFactions[faction.id] = appendRecentDiplomacyAction(
+              escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns),
+              'aiAlienateSucceeded'
+            );
             nextTarget.loyalty = Math.max(0, nextTarget.loyalty - loyaltyDrop);
             logs.push({
               text: `【${faction.name}】暗中散布流言，动摇了我方【${nextTarget.name}】的忠诚，忠诚下降 ${loyaltyDrop}。`,
@@ -156,7 +159,10 @@ export function resolveAiMonthlyDiplomacy({
           }
         }
 
-        nextFactions[faction.id] = escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns);
+        nextFactions[faction.id] = appendRecentDiplomacyAction(
+          escalateHostility(nextFactions[faction.id], GAME_BALANCE.diplomacy.covertHostilityTurns),
+          'aiAlienateFailed'
+        );
         logs.push({
           text: `【${faction.name}】试图离间我方将领，但暂未得手。`,
           type: 'system',
@@ -175,10 +181,13 @@ export function resolveAiMonthlyDiplomacy({
           GAME_BALANCE.ai.diplomacy.pressureRelationDropMax
         ) * diplomacyProfile.pressureDropMultiplier * goalDiplomacyModifiers.pressureDropMultiplier));
         const nextRelation = Math.max(0, relation - relationDrop);
-        nextFactions[faction.id] = escalateHostility({
-          ...nextFactions[faction.id],
-          relation: nextRelation,
-        });
+        nextFactions[faction.id] = appendRecentDiplomacyAction(
+          escalateHostility({
+            ...nextFactions[faction.id],
+            relation: nextRelation,
+          }),
+          'aiPressureEscalated'
+        );
         logs.push({
           text: `【${faction.name}】在边境陈兵施压，双方关系下降 ${relationDrop}。`,
           type: 'warning',
@@ -210,7 +219,7 @@ export function resolveAiMonthlyDiplomacy({
           updatedFaction = establishCeasefire(updatedFaction);
         }
 
-        nextFactions[faction.id] = updatedFaction;
+        nextFactions[faction.id] = appendRecentDiplomacyAction(updatedFaction, 'aiGiftSent');
         logs.push({
           text: `【${faction.name}】遣使修好，双方关系提升 ${relationBoost}。`,
           type: 'success',

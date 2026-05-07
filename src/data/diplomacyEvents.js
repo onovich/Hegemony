@@ -59,7 +59,7 @@ export const DIPLOMACY_STATE_EVENT_POOLS = {
   ],
 };
 
-export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
+export const DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
   peaceAccepted: [
     {
       scope: 'faction',
@@ -237,6 +237,85 @@ export const PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
       effects: {
         gold: [-120, -60],
         morale: [-4, -2],
+      },
+    },
+  ],
+  aiGiftSent: [
+    {
+      scope: 'faction',
+      type: 'system',
+      text: '【{{faction}}】遣使修好后往来渐密，双方关系回暖 {{relation}}，朝野观感亦有改善，名望提升 {{reputation}}。',
+      effects: {
+        relation: [1, 4],
+        reputation: [1, 2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'success',
+      text: '受【{{faction}}】缓和姿态带动，【{{city}}】商旅稍复，获得 {{gold}} 金，士气提升 {{morale}}。',
+      effects: {
+        gold: [70, 140],
+        morale: [2, 5],
+      },
+    },
+  ],
+  aiPressureEscalated: [
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '【{{faction}}】施压余波未止，【{{city}}】被迫增调守军，损失 {{gold}} 金，士气下降 {{morale}}。',
+      effects: {
+        gold: [-130, -70],
+        morale: [-5, -2],
+      },
+    },
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】借施压造势，令边地议论纷纷，我方名望下降 {{reputation}}，关系再降 {{relation}}。',
+      effects: {
+        reputation: [-2, -1],
+        relation: [-4, -2],
+      },
+    },
+  ],
+  aiAlienateSucceeded: [
+    {
+      scope: 'faction',
+      type: 'warning',
+      text: '【{{faction}}】离间得手的余波仍在，朝中猜疑加剧，名望下降 {{reputation}}，关系下降 {{relation}}。',
+      effects: {
+        reputation: [-2, -1],
+        relation: [-4, -2],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'warning',
+      text: '受【{{faction}}】离间流言扩散影响，【{{city}}】军心不宁，士气下降 {{morale}}，财政损失 {{gold}} 金。',
+      effects: {
+        morale: [-4, -2],
+        gold: [-110, -60],
+      },
+    },
+  ],
+  aiAlienateFailed: [
+    {
+      scope: 'faction',
+      type: 'system',
+      text: '【{{faction}}】离间未果反露行迹，我方名望提升 {{reputation}}，双方关系下降 {{relation}}。',
+      effects: {
+        reputation: [1, 2],
+        relation: [-3, -1],
+      },
+    },
+    {
+      scope: 'city',
+      type: 'system',
+      text: '【{{faction}}】细作暴露后，【{{city}}】军民稍安，士气提升 {{morale}}。',
+      effects: {
+        morale: [2, 4],
       },
     },
   ],

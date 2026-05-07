@@ -1,4 +1,4 @@
-import { DIPLOMACY_STATE_EVENT_POOLS, PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS } from '../../data/diplomacyEvents.js';
+import { DIPLOMACY_STATE_EVENT_POOLS, DIPLOMACY_FOLLOW_UP_EVENT_POOLS } from '../../data/diplomacyEvents.js';
 import { GAME_BALANCE } from '../../data/gameConfig.js';
 
 const RESOURCE_KEYS = new Set(['gold', 'food', 'reputation']);
@@ -114,7 +114,7 @@ export function resolveMonthlyDiplomacyEvents({ factions, playerCities, nextCiti
         };
 
         followUpActions.forEach((followUpAction) => {
-          const followUpPool = PLAYER_DIPLOMACY_FOLLOW_UP_EVENT_POOLS[followUpAction.type] ?? [];
+          const followUpPool = DIPLOMACY_FOLLOW_UP_EVENT_POOLS[followUpAction.type] ?? [];
           if (!followUpPool.length) {
             return;
           }
