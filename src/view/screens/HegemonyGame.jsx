@@ -65,7 +65,7 @@ export default function App() {
     const [factions, setFactions] = useState(INITIAL_FACTIONS);
     const [officers, setOfficers] = useState(INITIAL_OFFICERS);
     const [inventory, setInventory] = useState([]);
-    const [logs, setLogs] = useState([{ id: 0, text: '公元190年，群雄割据，您占据洛阳，开启了争霸之路。', type: 'system' }]);
+    const [logs, setLogs] = useState([{ id: 0, text: '公元190年，讨董烽烟四起，关东诸侯与关中强权并峙。您据守洛阳残垣，在群雄并起的乱世中争夺立足之地。', type: 'system' }]);
     const [activeTab, setActiveTab] = useState('HOME');
     const [activeCityId, setActiveCityId] = useState('luoyang');
     const [gameResult, setGameResult] = useState(null);

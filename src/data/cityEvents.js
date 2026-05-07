@@ -126,4 +126,125 @@ export const CITY_UNIQUE_EVENT_POOLS = {
       },
     },
   ],
+  changan: [
+    {
+      id: 'changan_grand_guard',
+      type: 'success',
+      text: '【{{city}}】军府整修宫禁，城防增加 {{defense}}，守军士气提升 {{morale}}。',
+      effects: {
+        defense: [3, 6],
+        morale: [3, 6],
+      },
+    },
+  ],
+  chenliu: [
+    {
+      id: 'chenliu_recruitment_drive',
+      type: 'success',
+      text: '【{{city}}】募兵榜文传遍州郡，获得 {{food}} 粮草，守军士气提升 {{morale}}。',
+      effects: {
+        food: [350, 700],
+        morale: [3, 6],
+      },
+    },
+  ],
+  ye: [
+    {
+      id: 'ye_hebei_granaries',
+      type: 'success',
+      text: '【{{city}}】河北仓廪充足，获得 {{food}} 粮草，商业增加 {{commerce}}。',
+      effects: {
+        food: [600, 1100],
+        commerce: [2, 5],
+      },
+    },
+  ],
+  shouchun: [
+    {
+      id: 'shouchun_luxury_court',
+      type: 'warning',
+      text: '【{{city}}】朝廷奢靡耗费府库，损失 {{gold}} 金，但市井喧闹带动商业增加 {{commerce}}。',
+      effects: {
+        gold: [-180, -100],
+        commerce: [2, 4],
+      },
+    },
+  ],
+  beiping: [
+    {
+      id: 'beiping_white_horse',
+      type: 'success',
+      text: '【{{city}}】边骑巡弋塞外，守军士气提升 {{morale}}，兵力整训增加 {{troops}}。',
+      effects: {
+        morale: [4, 7],
+        troops: [180, 320],
+      },
+    },
+  ],
+  pingyuan: [
+    {
+      id: 'pingyuan_benevolent_relief',
+      type: 'success',
+      text: '【{{city}}】施粥济民，百姓归附，获得 {{reputation}} 点名望，士气提升 {{morale}}。',
+      effects: {
+        reputation: [1, 3],
+        morale: [3, 6],
+      },
+    },
+  ],
+  xiangyang: [
+    {
+      id: 'xiangyang_scholars',
+      type: 'success',
+      text: '【{{city}}】荆襄士人纷纷来投，获得 {{gold}} 金，商业增加 {{commerce}}。',
+      effects: {
+        gold: [150, 260],
+        commerce: [2, 5],
+      },
+    },
+  ],
+  jiangxia: [
+    {
+      id: 'jiangxia_river_patrol',
+      type: 'success',
+      text: '【{{city}}】水寨巡防严整，城防增加 {{defense}}，获得 {{food}} 粮草。',
+      effects: {
+        defense: [2, 5],
+        food: [260, 520],
+      },
+    },
+  ],
+  wujun: [
+    {
+      id: 'wujun_river_merchants',
+      type: 'success',
+      text: '【{{city}}】江东商旅齐聚，获得 {{gold}} 金，商业增加 {{commerce}}。',
+      effects: {
+        gold: [180, 320],
+        commerce: [3, 6],
+      },
+    },
+  ],
+  hanzhong: [
+    {
+      id: 'hanzhong_mountain_pass',
+      type: 'success',
+      text: '【{{city}}】山道关卡加固，城防增加 {{defense}}，士气提升 {{morale}}。',
+      effects: {
+        defense: [3, 6],
+        morale: [2, 5],
+      },
+    },
+  ],
+  wuwei: [
+    {
+      id: 'wuwei_horse_fairs',
+      type: 'success',
+      text: '【{{city}}】西凉马市兴旺，获得 {{gold}} 金，兵力整训增加 {{troops}}。',
+      effects: {
+        gold: [120, 220],
+        troops: [160, 300],
+      },
+    },
+  ],
 };
