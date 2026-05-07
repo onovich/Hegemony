@@ -139,6 +139,15 @@ export const DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
         gold: [70, 140],
       },
     },
+    {
+      scope: 'enemyCity',
+      type: 'warning',
+      text: '【{{faction}}】降将暗通我军，令【{{city}}】城防下降 {{defense}}，守军士气下降 {{morale}}。',
+      effects: {
+        defense: [-7, -3],
+        morale: [-8, -4],
+      },
+    },
   ],
   persuadeFailed: [
     {
@@ -177,6 +186,15 @@ export const DIPLOMACY_FOLLOW_UP_EVENT_POOLS = {
       effects: {
         gold: [60, 130],
         morale: [2, 5],
+      },
+    },
+    {
+      scope: 'enemyCity',
+      type: 'warning',
+      text: '【{{faction}}】军中流言扩散至【{{city}}】，守军互不统属，兵力损失 {{troops}}，士气下降 {{morale}}。',
+      effects: {
+        troops: [-420, -180],
+        morale: [-7, -3],
       },
     },
   ],

@@ -25,10 +25,23 @@ const rollEventOutcome = (event) => Object.fromEntries(
   Object.entries(event.effects).map(([key, [min, max]]) => [key, randInt(min, max)]),
 );
 
+function pickEventCity({ event, faction, playerCities, nextCities }) {
+  if (event.scope === 'city' && playerCities.length) {
+    return playerCities[randInt(0, playerCities.length - 1)];
+  }
+
+  if (event.scope === 'enemyCity') {
+    const enemyCities = Object.values(nextCities).filter(city => city.owner === faction.id);
+    if (enemyCities.length) {
+      return enemyCities[randInt(0, enemyCities.length - 1)];
+    }
+  }
+
+  return null;
+}
+
 function applyDiplomacyEvent({ event, faction, playerCities, nextCities, cityUpdates, resourceDelta, factions }) {
-  const targetCity = event.scope === 'city' && playerCities.length
-    ? playerCities[randInt(0, playerCities.length - 1)]
-    : null;
+  const targetCity = pickEventCity({ event, faction, playerCities, nextCities });
   const outcome = rollEventOutcome(event);
   const nextCity = targetCity ? { ...(cityUpdates[targetCity.id] ?? nextCities[targetCity.id] ?? targetCity) } : null;
 
