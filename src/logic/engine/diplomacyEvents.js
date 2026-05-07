@@ -3,6 +3,7 @@ import { GAME_BALANCE } from '../../data/gameConfig.js';
 
 const RESOURCE_KEYS = new Set(['gold', 'food', 'reputation']);
 const CITY_KEYS = new Set(['agriculture', 'commerce', 'defense', 'troops', 'morale']);
+const PLAYER_CITY_TARGETS = new Set(['playerBenefit', 'playerPenalty']);
 
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -25,12 +26,26 @@ const rollEventOutcome = (event) => Object.fromEntries(
   Object.entries(event.effects).map(([key, [min, max]]) => [key, randInt(min, max)]),
 );
 
-function pickEventCity({ event, faction, playerCities, nextCities }) {
-  if (event.scope === 'city' && playerCities.length) {
-    return playerCities[randInt(0, playerCities.length - 1)];
+function getEventTargetType(event) {
+  if (event.target) {
+    return event.target;
   }
 
   if (event.scope === 'enemyCity') {
+    return 'enemyCityPressure';
+  }
+
+  return 'playerPenalty';
+}
+
+function pickEventCity({ event, faction, playerCities, nextCities }) {
+  const targetType = getEventTargetType(event);
+
+  if (event.scope === 'city' && PLAYER_CITY_TARGETS.has(targetType) && playerCities.length) {
+    return playerCities[randInt(0, playerCities.length - 1)];
+  }
+
+  if (event.scope === 'enemyCity' && targetType === 'enemyCityPressure') {
     const enemyCities = Object.values(nextCities).filter(city => city.owner === faction.id);
     if (enemyCities.length) {
       return enemyCities[randInt(0, enemyCities.length - 1)];
