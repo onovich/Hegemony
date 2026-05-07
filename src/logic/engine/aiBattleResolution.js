@@ -18,10 +18,21 @@ function getAiStrategyProfile(faction) {
   };
 }
 
+function getGoalBattleModifiers(aiPlan = null) {
+  return {
+    attackRelationThresholdOffset: 0,
+    attackMinTroopsMultiplier: 1,
+    attackMinMoraleMultiplier: 1,
+    attackPowerAdvantageRatioMultiplier: 1,
+    ...(aiPlan?.config ?? {}),
+  };
+}
+
 export function resolveAiMonthlyBattles({
   nextCities,
   nextOfficers,
   factions,
+  aiPlans,
   getFactionCitiesFromState,
   getCityProfileFromState,
 }) {
@@ -77,16 +88,17 @@ export function resolveAiMonthlyBattles({
 
     const relation = factions[factionId]?.relation ?? 0;
     const strategyProfile = getAiStrategyProfile(factions[factionId] ?? {});
+    const goalBattleModifiers = getGoalBattleModifiers(aiPlans?.[factionId]);
     if (!shouldAiAttack({
       attackerCity: attacker.city,
       attackerStats: attacker.stats,
       targetCity: defender.city,
       targetStats: defender.stats,
       relation,
-      attackRelationThreshold: GAME_BALANCE.ai.attackRelationThreshold + strategyProfile.attackRelationThresholdOffset,
-      attackMinTroops: Math.floor(GAME_BALANCE.ai.attackMinTroops * strategyProfile.attackMinTroopsMultiplier),
-      attackMinMorale: Math.floor(GAME_BALANCE.ai.attackMinMorale * strategyProfile.attackMinMoraleMultiplier),
-      attackPowerAdvantageRatio: GAME_BALANCE.ai.attackPowerAdvantageRatio * strategyProfile.attackPowerAdvantageRatioMultiplier,
+      attackRelationThreshold: GAME_BALANCE.ai.attackRelationThreshold + strategyProfile.attackRelationThresholdOffset + goalBattleModifiers.attackRelationThresholdOffset,
+      attackMinTroops: Math.floor(GAME_BALANCE.ai.attackMinTroops * strategyProfile.attackMinTroopsMultiplier * goalBattleModifiers.attackMinTroopsMultiplier),
+      attackMinMorale: Math.floor(GAME_BALANCE.ai.attackMinMorale * strategyProfile.attackMinMoraleMultiplier * goalBattleModifiers.attackMinMoraleMultiplier),
+      attackPowerAdvantageRatio: GAME_BALANCE.ai.attackPowerAdvantageRatio * strategyProfile.attackPowerAdvantageRatioMultiplier * goalBattleModifiers.attackPowerAdvantageRatioMultiplier,
     })) {
       return;
     }

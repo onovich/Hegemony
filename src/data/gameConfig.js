@@ -91,6 +91,11 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 0.88,
       attackMinMoraleMultiplier: 0.92,
       attackPowerAdvantageRatioMultiplier: 0.94,
+      goalBias: {
+        military: 1.2,
+        development: 0.9,
+        diplomacy: 0.78,
+      },
       governorWeightBias: {
         pol: 1,
         int: 1.05,
@@ -131,6 +136,11 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 1.08,
       attackMinMoraleMultiplier: 1.05,
       attackPowerAdvantageRatioMultiplier: 1.08,
+      goalBias: {
+        military: 0.84,
+        development: 1.04,
+        diplomacy: 1.2,
+      },
       governorWeightBias: {
         pol: 1.15,
         int: 1,
@@ -171,6 +181,11 @@ export const INITIAL_FACTIONS = {
       attackMinTroopsMultiplier: 0.98,
       attackMinMoraleMultiplier: 0.98,
       attackPowerAdvantageRatioMultiplier: 1,
+      goalBias: {
+        military: 1,
+        development: 1.06,
+        diplomacy: 1.08,
+      },
       governorWeightBias: {
         pol: 1,
         int: 1.05,
@@ -475,6 +490,62 @@ export const GAME_BALANCE = {
       pressureRelationDropMin: 6,
       pressureRelationDropMax: 14,
       alienateChance: 28,
+    },
+    planning: {
+      weakTroopRatio: 0.9,
+      strongTroopRatio: 1.12,
+      highRelation: 65,
+      lowMorale: 68,
+    },
+    stageGoals: {
+      military: {
+        label: '扩军攻势',
+        attackRelationThresholdOffset: 12,
+        attackMinTroopsMultiplier: 0.9,
+        attackMinMoraleMultiplier: 0.95,
+        attackPowerAdvantageRatioMultiplier: 0.95,
+        growthMultipliers: { troops: 1.12, agriculture: 0.94, commerce: 0.94, defense: 1.08, morale: 1.02 },
+        diplomacyModifiers: {
+          giftChanceMultiplier: 0.72,
+          giftBoostMultiplier: 0.85,
+          pressureChanceMultiplier: 1.25,
+          pressureDropMultiplier: 1.15,
+          pressureTroopRatioMultiplier: 0.96,
+          alienateChanceMultiplier: 1.15,
+        },
+      },
+      development: {
+        label: '休养固本',
+        attackRelationThresholdOffset: -10,
+        attackMinTroopsMultiplier: 1.08,
+        attackMinMoraleMultiplier: 1.08,
+        attackPowerAdvantageRatioMultiplier: 1.08,
+        growthMultipliers: { troops: 0.95, agriculture: 1.14, commerce: 1.08, defense: 1, morale: 1.1 },
+        diplomacyModifiers: {
+          giftChanceMultiplier: 1.05,
+          giftBoostMultiplier: 1.05,
+          pressureChanceMultiplier: 0.8,
+          pressureDropMultiplier: 0.9,
+          pressureTroopRatioMultiplier: 1.04,
+          alienateChanceMultiplier: 0.9,
+        },
+      },
+      diplomacy: {
+        label: '修盟观势',
+        attackRelationThresholdOffset: -16,
+        attackMinTroopsMultiplier: 1.12,
+        attackMinMoraleMultiplier: 1.02,
+        attackPowerAdvantageRatioMultiplier: 1.12,
+        growthMultipliers: { troops: 0.96, agriculture: 1.02, commerce: 1.12, defense: 0.98, morale: 1.08 },
+        diplomacyModifiers: {
+          giftChanceMultiplier: 1.35,
+          giftBoostMultiplier: 1.2,
+          pressureChanceMultiplier: 0.62,
+          pressureDropMultiplier: 0.82,
+          pressureTroopRatioMultiplier: 1.08,
+          alienateChanceMultiplier: 0.82,
+        },
+      },
     },
     roleGrowthBonus: {
       capital: { troops: 20, agriculture: 1, commerce: 1, defense: 1, morale: 1 },

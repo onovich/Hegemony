@@ -1,5 +1,6 @@
 import { advanceFactionEconomy } from './gameBalance.js';
 import { resolvePlayerMonthlyTurn } from './playerTurnResolution.js';
+import { resolveAiStagePlans } from './aiStagePlanning.js';
 import { resolveAiFactionCityManagement } from './aiCityManagement.js';
 import { resolveAiMonthlyDiplomacy } from './aiDiplomacyResolution.js';
 import { resolveAiMonthlyBattles } from './aiBattleResolution.js';
@@ -38,6 +39,13 @@ export function resolveMonthlyTurnFlow({
     getCityRoleLabel,
   });
   const logs = [...playerTurnResult.logs];
+  const aiStagePlanResult = resolveAiStagePlans({
+    factions: nextFactions,
+    getFactionCitiesFromState,
+  });
+  const aiPlans = aiStagePlanResult.plans;
+
+  logs.push(...aiStagePlanResult.logs);
 
   const aiFactionIds = [...new Set(Object.values(nextCities).filter(city => city.owner !== 'player').map(city => city.owner))];
 
@@ -46,6 +54,7 @@ export function resolveMonthlyTurnFlow({
       factionId,
       factionName: nextFactions[factionId].name,
       faction: nextFactions[factionId],
+      aiPlan: aiPlans[factionId],
       cities: getFactionCitiesFromState(factionId),
       officers: nextOfficers,
     });
@@ -60,6 +69,7 @@ export function resolveMonthlyTurnFlow({
   const aiDiplomacyResult = resolveAiMonthlyDiplomacy({
     nextFactions,
     nextOfficers,
+    aiPlans,
     getFactionCitiesFromState,
     getFactionOfficersFromState,
   });
@@ -70,6 +80,7 @@ export function resolveMonthlyTurnFlow({
     nextCities,
     nextOfficers,
     factions: nextFactions,
+    aiPlans,
     getFactionCitiesFromState,
     getCityProfileFromState,
   });

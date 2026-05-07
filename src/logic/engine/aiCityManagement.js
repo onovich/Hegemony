@@ -18,7 +18,8 @@ const COMMANDER_ROLE_WEIGHTS = {
   military: { cmd: 1.25, cha: 0.45, int: 0.2, pol: 0.1 },
 };
 
-function getAiStrategyProfile(faction = {}) {
+function getAiStrategyProfile(faction = {}, aiPlan = null) {
+  const goalGrowthMultipliers = aiPlan?.config?.growthMultipliers ?? {};
   return {
     governorWeightBias: {
       pol: 1,
@@ -61,6 +62,11 @@ function getAiStrategyProfile(faction = {}) {
       defense: 1,
       morale: 1,
       ...(faction.aiStrategyProfile?.growthMultipliers ?? {}),
+      troops: (faction.aiStrategyProfile?.growthMultipliers?.troops ?? 1) * (goalGrowthMultipliers.troops ?? 1),
+      agriculture: (faction.aiStrategyProfile?.growthMultipliers?.agriculture ?? 1) * (goalGrowthMultipliers.agriculture ?? 1),
+      commerce: (faction.aiStrategyProfile?.growthMultipliers?.commerce ?? 1) * (goalGrowthMultipliers.commerce ?? 1),
+      defense: (faction.aiStrategyProfile?.growthMultipliers?.defense ?? 1) * (goalGrowthMultipliers.defense ?? 1),
+      morale: (faction.aiStrategyProfile?.growthMultipliers?.morale ?? 1) * (goalGrowthMultipliers.morale ?? 1),
     },
   };
 }
@@ -119,10 +125,10 @@ function calculateAiCityGrowth(city, profile, strategyProfile) {
   };
 }
 
-export function resolveAiFactionCityManagement({ factionId, factionName, faction, cities, officers }) {
+export function resolveAiFactionCityManagement({ factionId, factionName, faction, aiPlan = null, cities, officers }) {
   const cityUpdates = {};
   const logs = [];
-  const strategyProfile = getAiStrategyProfile(faction);
+  const strategyProfile = getAiStrategyProfile(faction, aiPlan);
 
   cities.forEach(city => {
     const stationedOfficers = officers.filter(officer => (
