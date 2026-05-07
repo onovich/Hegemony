@@ -1,4 +1,4 @@
-import { FolderOpen, Play, Save, Sword } from 'lucide-react';
+import { FolderOpen, Play, Sword } from 'lucide-react';
 import { useState } from 'react';
 import HegemonySaveSlotPicker from './HegemonySaveSlotPicker.jsx';
 
@@ -11,13 +11,6 @@ const TITLE_ACTIONS = [
         icon: Play,
     },
     {
-        id: 'save',
-        title: '存档',
-        description: '选择槽位保存当前战局',
-        tone: 'neutral',
-        icon: Save,
-    },
-    {
         id: 'load',
         title: '读档',
         description: '选择槽位读取已有战局',
@@ -27,12 +20,10 @@ const TITLE_ACTIONS = [
 ];
 
 export default function HegemonyTitleScreen({
-    hasSuspendedGame,
     saveSlots,
     statusMessage,
     statusTone,
     onNewGame,
-    onSave,
     onLoad,
 }) {
     const [slotAction, setSlotAction] = useState(null);
@@ -42,13 +33,11 @@ export default function HegemonyTitleScreen({
 
     const actionHandlers = {
         new: onNewGame,
-        save: () => setSlotAction('save'),
         load: () => setSlotAction('load'),
     };
 
     const actionAvailability = {
         new: true,
-        save: hasSuspendedGame,
         load: saveSlots.some(slot => slot.hasData),
     };
 
@@ -93,24 +82,6 @@ export default function HegemonyTitleScreen({
                     <div className="space-y-3">
                         {TITLE_ACTIONS.map(action => renderActionButton(action))}
                     </div>
-
-                    {slotAction === 'save' ? (
-                        <div className="mt-4">
-                            <HegemonySaveSlotPicker
-                                title="选择存档槽位"
-                                description="将当前挂起战局保存到指定槽位。"
-                                slots={saveSlots}
-                                actionLabel="覆盖保存"
-                                onSelect={(slotId) => {
-                                    const result = onSave(slotId);
-                                    if (result?.ok) {
-                                        setSlotAction(null);
-                                    }
-                                }}
-                                onCancel={() => setSlotAction(null)}
-                            />
-                        </div>
-                    ) : null}
 
                     {slotAction === 'load' ? (
                         <div className="mt-4">

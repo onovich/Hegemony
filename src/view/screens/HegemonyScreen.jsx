@@ -97,25 +97,15 @@ export default function HegemonyScreen() {
     return { ok: true };
   };
 
-  const handleTitleSave = () => {
-    const defaultSlot = saveSlots[0]?.slotId;
-    const result = handleSaveSnapshot(suspendedSnapshot, defaultSlot);
-    if (!result.ok) {
-      setTitleStatus({ tone: 'error', message: result.message });
-    }
-  };
-
   return (
     <>
       <ScreenMountNote />
       {screenMode === 'title' ? (
         <HegemonyTitleScreen
-          hasSuspendedGame={Boolean(suspendedSnapshot)}
           saveSlots={saveSlots}
           statusMessage={titleStatus?.message ?? null}
           statusTone={titleStatus?.tone ?? 'success'}
           onNewGame={handleStartNewGame}
-          onSave={slotId => handleSaveSnapshot(suspendedSnapshot, slotId)}
           onLoad={handleLoadSavedGame}
         />
       ) : screenMode === 'guide' ? (
